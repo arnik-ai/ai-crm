@@ -15,9 +15,12 @@ def _now() -> datetime:
 
 
 def create_access_token(sub: str, roles: list[str], permissions: list[str],
-                        tenant_id: str | None = None) -> str:
+                        tenant_id: str | None = None,
+                        email: str = "", full_name: str = "") -> str:
     payload = {
         "sub": sub,
+        "email": email,
+        "full_name": full_name,
         "roles": roles,
         "perms": permissions,
         "tenant_id": tenant_id,

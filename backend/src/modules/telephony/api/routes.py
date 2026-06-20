@@ -2,8 +2,11 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.identity.api.dependencies import require_permission
+from src.modules.telephony.application.call_query_service import CallQueryService
+from src.shared.db.base import get_session
 
 router = APIRouter()
 
@@ -14,15 +17,19 @@ async def list_calls(
     status: str | None = None,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("calls:read")),
 ) -> dict:
-    # پیاده‌سازی با CallQueryService
-    return {"items": [], "total": 0, "page": page, "size": size}
+    return await CallQueryService(session).list(direction, status, page, size)
 
 
 @router.get("/{call_id}")
-async def get_call(call_id: UUID, user=Depends(require_permission("calls:read"))) -> dict:
-    return {"id": str(call_id)}
+async def get_call(
+    call_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("calls:read")),
+) -> dict:
+    return await CallQueryService(session).detail(call_id)
 
 
 @router.get("/{call_id}/recording")

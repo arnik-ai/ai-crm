@@ -44,6 +44,9 @@ class CallAnalysisResult(BaseModel):
     """خروجی نهایی پایپ‌لاین تحلیل تماس."""
 
     call_id: str
+    transcript: Optional[str] = None
+    segments: list[dict] = Field(default_factory=list)
+    language: str = "fa"
     extracted: ExtractedInfo
     lead_score: int
     registration_probability: float

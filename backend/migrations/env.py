@@ -16,6 +16,7 @@ from src.modules.identity.infrastructure import models as _identity  # noqa: F40
 from src.modules.crm.infrastructure import models as _crm  # noqa: F401
 from src.modules.telephony.infrastructure import models as _tel  # noqa: F401
 from src.modules.ai_analysis.infrastructure import models as _ai  # noqa: F401
+from src.shared.db import audit_model as _audit  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)

@@ -59,3 +59,31 @@ class Paginated(BaseModel):
     total: int
     page: int
     size: int
+
+
+class CourseCreate(BaseModel):
+    title: str = Field(min_length=1)
+    slug: str = Field(pattern=r"^[a-z0-9\-]+$")
+    price: float | None = None
+
+
+class CourseUpdate(BaseModel):
+    title: str | None = None
+    price: float | None = None
+    is_active: bool | None = None
+
+
+class TagCreate(BaseModel):
+    name: str = Field(min_length=1)
+    color: str = "#3b82f6"
+
+
+class TagAttach(BaseModel):
+    tag_id: UUID
+
+
+class StageCreate(BaseModel):
+    name: str = Field(min_length=1)
+    order_index: int
+    is_terminal: bool = False
+    color: str = "#888888"

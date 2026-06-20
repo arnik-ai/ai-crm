@@ -5,14 +5,20 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.crm.api.schemas import (
+    CourseCreate,
+    CourseUpdate,
     FollowupCreate,
     NoteCreate,
     Paginated,
     StageChange,
+    StageCreate,
     StudentCreate,
     StudentOut,
     StudentUpdate,
+    TagAttach,
+    TagCreate,
 )
+from src.modules.crm.application.catalog_service import CatalogService
 from src.modules.crm.application.student_service import StudentService
 from src.modules.identity.api.dependencies import current_user, require_permission
 from src.shared.db.base import get_session
@@ -113,3 +119,82 @@ async def create_followup(
     user=Depends(require_permission("followups:write")),
 ) -> dict:
     return await StudentService(session).create_followup(body, owner_id=user.id)
+
+
+# ---------- Courses ----------
+@router.get("/courses")
+async def list_courses(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> list[dict]:
+    return await CatalogService(session).list_courses()
+
+
+@router.post("/courses", status_code=201)
+async def create_course(
+    body: CourseCreate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("courses:write")),
+) -> dict:
+    return await CatalogService(session).create_course(body.title, body.slug, body.price)
+
+
+@router.patch("/courses/{course_id}")
+async def update_course(
+    course_id: UUID,
+    body: CourseUpdate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("courses:write")),
+) -> dict:
+    return await CatalogService(session).update_course(
+        course_id, body.model_dump(exclude_unset=True)
+    )
+
+
+# ---------- Tags ----------
+@router.get("/tags")
+async def list_tags(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> list[dict]:
+    return await CatalogService(session).list_tags()
+
+
+@router.post("/tags", status_code=201)
+async def create_tag(
+    body: TagCreate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    return await CatalogService(session).create_tag(body.name, body.color)
+
+
+@router.post("/students/{student_id}/tags", status_code=201)
+async def attach_tag(
+    student_id: UUID,
+    body: TagAttach,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    return await CatalogService(session).attach_tag(student_id, body.tag_id)
+
+
+# ---------- Sales Stages ----------
+@router.get("/sales-stages")
+async def list_stages(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> list[dict]:
+    return await CatalogService(session).list_stages(tenant_id=user.tenant_id)
+
+
+@router.post("/sales-stages", status_code=201)
+async def create_stage(
+    body: StageCreate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    return await CatalogService(session).create_stage(
+        body.name, body.order_index, body.is_terminal, body.color,
+        tenant_id=user.tenant_id,
+    )

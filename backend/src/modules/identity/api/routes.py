@@ -12,11 +12,13 @@ from src.modules.identity.api.schemas import (
 from src.modules.identity.application.auth_service import AuthService
 from src.shared.db.base import get_session
 from src.shared.db.redis_client import get_redis
+from src.shared.security.rate_limit import login_rate_limiter
 
 router = APIRouter()
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse,
+             dependencies=[Depends(login_rate_limiter())])
 async def login(
     body: LoginRequest,
     session: AsyncSession = Depends(get_session),

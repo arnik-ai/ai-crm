@@ -49,13 +49,16 @@ class AnalysisRepository:
         async with SessionLocal() as s:
             # ذخیره‌ی transcript روی recording مرتبط
             rec = await s.scalar(select(Recording).where(Recording.call_id == UUID(call_id)))
-            if rec:
+            if rec and result.transcript:
                 tr = await s.scalar(
                     select(Transcript).where(Transcript.recording_id == rec.id))
                 if tr is None:
                     tr = Transcript(recording_id=rec.id)
                     s.add(tr)
-                # متن کامل از segmentها در state موجود است؛ این‌جا خلاصه ذخیره می‌شود
+                tr.content = result.transcript
+                tr.segments = result.segments or None
+                tr.language = result.language
+                tr.engine = "avalai-whisper"
             if student_id:
                 s.add(LeadScore(
                     student_id=UUID(student_id),

@@ -27,8 +27,11 @@ class AuthService:
 
         roles = [r.name for r in user.roles]
         perms = sorted({p.code for r in user.roles for p in r.permissions})
-        access = create_access_token(str(user.id), roles, perms,
-                                     str(user.tenant_id) if user.tenant_id else None)
+        access = create_access_token(
+            str(user.id), roles, perms,
+            str(user.tenant_id) if user.tenant_id else None,
+            email=user.email, full_name=user.full_name,
+        )
         refresh, jti = create_refresh_token(str(user.id))
         await self._redis.setex(f"refresh:{jti}", 604800, str(user.id))
 
@@ -61,7 +64,11 @@ class AuthService:
         user = result.scalar_one()
         roles = [r.name for r in user.roles]
         perms = sorted({p.code for r in user.roles for p in r.permissions})
-        access = create_access_token(str(user.id), roles, perms)
+        access = create_access_token(
+            str(user.id), roles, perms,
+            str(user.tenant_id) if user.tenant_id else None,
+            email=user.email, full_name=user.full_name,
+        )
         refresh, jti = create_refresh_token(str(user.id))
         await self._redis.setex(f"refresh:{jti}", 604800, str(user.id))
         from src.shared.config.settings import get_settings

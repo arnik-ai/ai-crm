@@ -33,6 +33,8 @@ class AnalyzeCallUseCase:
         extracted = final.get("extracted") or ExtractedInfo()
         return CallAnalysisResult(
             call_id=call_id,
+            transcript=final.get("transcript"),
+            segments=final.get("segments") or [],
             extracted=extracted,
             lead_score=final.get("lead_score") or 0,
             registration_probability=final.get("registration_probability") or 0.0,

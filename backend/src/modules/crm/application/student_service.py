@@ -18,6 +18,7 @@ from src.modules.crm.infrastructure.models import (
     Student,
 )
 from src.shared.errors.exceptions import ConflictError, NotFoundError
+from src.shared.security.audit import record_audit
 
 
 class StudentService:
@@ -64,6 +65,9 @@ class StudentService:
         await self._s.flush()
         self._s.add(Activity(student_id=student.id, type="created",
                              payload={"by": actor_id}))
+        await record_audit(self._s, actor_id=actor_id, action="create",
+                           entity="student", entity_id=str(student.id),
+                           diff={"mobile": student.mobile})
         await self._s.commit()
         return StudentOut.model_validate(student)
 
@@ -83,6 +87,8 @@ class StudentService:
         from datetime import datetime, timezone
         student = await self._get_or_404(student_id)
         student.deleted_at = datetime.now(tz=timezone.utc)
+        await record_audit(self._s, actor_id=actor_id, action="delete",
+                           entity="student", entity_id=str(student_id))
         await self._s.commit()
 
     async def change_stage(self, student_id: UUID, stage_id: UUID,
@@ -92,6 +98,9 @@ class StudentService:
         student.sales_stage_id = stage_id
         self._s.add(Activity(student_id=student.id, type="stage_changed",
                              payload={"from": str(old), "to": str(stage_id)}))
+        await record_audit(self._s, actor_id=actor_id, action="change_stage",
+                           entity="student", entity_id=str(student_id),
+                           diff={"from": str(old), "to": str(stage_id)})
         await self._s.commit()
         return StudentOut.model_validate(student)
 
