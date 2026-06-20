@@ -1,0 +1,52 @@
+name: Deploy to Parspack
+
+on:
+  push:
+    branches: [main]
+
+# استقرار سه اپ (api, worker, beat) + فرانت روی Parspack PaaS
+# رازها در GitHub Secrets تعریف می‌شوند:
+#   PARSPACK_GIT_REMOTE_API, PARSPACK_GIT_REMOTE_FRONT, PARSPACK_DEPLOY_TOKEN
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy-backend:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: استقرار بک‌اند روی Parspack (git push به remote)
+        env:
+          TOKEN: ${{ secrets.PARSPACK_DEPLOY_TOKEN }}
+          REMOTE: ${{ secrets.PARSPACK_GIT_REMOTE_API }}
+        run: |
+          git config user.email "ci@crm"
+          git config user.name "CI"
+          # فاز release در Procfile مهاجرت DB را اجرا می‌کند (alembic upgrade head)
+          git remote add parspack "$REMOTE" || true
+          git push parspack HEAD:main --force
+
+  deploy-frontend:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: استقرار فرانت‌اند روی Parspack
+        env:
+          REMOTE: ${{ secrets.PARSPACK_GIT_REMOTE_FRONT }}
+        run: |
+          git remote add parspack-front "$REMOTE" || true
+          git push parspack-front HEAD:main --force
+
+  smoke-test:
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: بررسی سلامت سرویس
+        run: |
+          curl -fsS "${{ secrets.API_HEALTH_URL }}/healthz" || exit 1

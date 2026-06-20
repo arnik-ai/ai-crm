@@ -1,0 +1,104 @@
+"use client";
+import { useState } from "react";
+import { api } from "@/lib/api";
+import { Sidebar } from "@/components/Sidebar";
+
+const samples = [
+  "امروز با چه کسانی تماس بگیرم؟",
+  "کدام دانشجوها احتمال ثبت‌نام بالایی دارند؟",
+  "دانشجوهای علاقه‌مند به پایتون را نشان بده",
+  "سرنخ‌های دارای اعتراض قیمتی",
+  "سرنخ‌های بدون پیگیری در ۷ روز اخیر",
+];
+
+type Msg = { role: "user" | "assistant"; text: string; students?: any[] };
+
+export default function AssistantPage() {
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function send(text: string) {
+    if (!text.trim()) return;
+    setMessages((m) => [...m, { role: "user", text }]);
+    setInput("");
+    setLoading(true);
+    try {
+      const { data } = await api.post("/ai/assistant/query", { message: text });
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", text: data.answer, students: data.students },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <main className="flex-1 p-8">
+        <h1 className="mb-6 text-2xl font-bold">دستیار هوشمند CRM</h1>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {samples.map((s) => (
+            <button
+              key={s}
+              onClick={() => send(s)}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm hover:bg-slate-50"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <div className="card mb-4 max-h-[60vh] min-h-[300px] space-y-4 overflow-y-auto">
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={`max-w-[80%] rounded-xl p-3 text-sm ${
+                m.role === "user"
+                  ? "ms-auto bg-brand text-white"
+                  : "bg-slate-100"
+              }`}
+            >
+              <div>{m.text}</div>
+              {m.students && m.students.length > 0 && (
+                <ul className="mt-2 list-disc ps-5">
+                  {m.students.map((st) => (
+                    <li key={st.id}>
+                      {st.full_name ?? st.mobile}
+                      {st.registration_probability != null &&
+                        ` — احتمال: ${Math.round(
+                          st.registration_probability * 100
+                        )}%`}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+          {loading && <div className="text-sm text-slate-400">در حال پردازش…</div>}
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            send(input);
+          }}
+          className="flex gap-2"
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="سؤال خود را بنویسید…"
+            className="flex-1 rounded-lg border border-slate-300 px-4 py-2"
+          />
+          <button className="btn" type="submit">
+            ارسال
+          </button>
+        </form>
+      </main>
+    </div>
+  );
+}
