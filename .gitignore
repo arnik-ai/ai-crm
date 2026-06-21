@@ -27,3 +27,4 @@ npm-debug.log*
 # Data
 *.sqlite3
 *.log
+*.tsbuildinfo

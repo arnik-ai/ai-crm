@@ -5,7 +5,11 @@ from pydantic import BaseModel, Field
 
 
 class ExtractedInfo(BaseModel):
-    """اطلاعات کسب‌وکاری استخراج‌شده از مکالمه."""
+    """اطلاعات کسب‌وکاری استخراج‌شده از مکالمه.
+
+    توجه: شماره موبایل عمداً اینجا نیست — شماره فقط از خود تماس سیموتل گرفته می‌شود،
+    نه از استخراج AI (که ممکن است اشتباه بشنود).
+    """
 
     full_name: Optional[str] = Field(None, description="نام کامل دانشجو/سرنخ")
     course_name: Optional[str] = Field(None, description="نام دوره‌ی موردعلاقه")
@@ -16,6 +20,11 @@ class ExtractedInfo(BaseModel):
     preferred_followup_date: Optional[str] = Field(None, description="تاریخ پیگیری ISO")
     urgency: Optional[Literal["high", "medium", "low"]] = None
     purchase_signals: list[str] = Field(default_factory=list)
+    # میزان اطمینان مدل به درستیِ استخراج (۰ تا ۱). پایین = نیاز به بازبینی انسان.
+    confidence: float = Field(
+        default=0.8, ge=0.0, le=1.0,
+        description="اطمینان مدل به دقت اطلاعات استخراج‌شده (۰ تا ۱)",
+    )
 
 
 class LeadScoreResult(BaseModel):

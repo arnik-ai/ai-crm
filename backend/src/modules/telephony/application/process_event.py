@@ -23,6 +23,8 @@ async def process_event_async(webhook_log_id: str) -> dict:
     if event is None:
         return {"status": "log_not_found"}
 
+    # ⚠️ مهم: شماره موبایل همیشه از خود رویداد سیموتل (caller_number) گرفته می‌شود،
+    # نه از استخراج AI. AI ممکن است شماره را اشتباه بشنود؛ منبع معتبرِ شماره فقط سیموتل است.
     student_id = await call_repo.match_or_create_student(event.caller_number)
     call_id = await call_repo.upsert_call(event, student_id)
     await call_repo.add_activity(student_id, event)

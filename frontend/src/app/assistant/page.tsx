@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
+import { BackButton } from "@/components/BackButton";
+import { Bot, Send } from "lucide-react";
 
 const samples = [
   "امروز با چه کسانی تماس بگیرم؟",
@@ -35,17 +37,28 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar />
-      <main className="flex-1 p-8">
-        <h1 className="mb-6 text-2xl font-bold">دستیار هوشمند CRM</h1>
+      <main className="flex-1 p-4 md:p-8">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-md shadow-violet-200">
+              <Bot size={22} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-extrabold text-white">دستیار هوشمند CRM</h1>
+              <p className="mt-0.5 text-sm text-slate-300">سؤالت را بپرس تا از بین سرنخ‌ها برایت پیدا کنم</p>
+            </div>
+          </div>
+          <BackButton dark />
+        </div>
 
         <div className="mb-4 flex flex-wrap gap-2">
           {samples.map((s) => (
             <button
               key={s}
               onClick={() => send(s)}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm hover:bg-slate-50"
+              className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white backdrop-blur-sm transition hover:bg-white/20"
             >
               {s}
             </button>
@@ -79,6 +92,12 @@ export default function AssistantPage() {
             </div>
           ))}
           {loading && <div className="text-sm text-slate-400">در حال پردازش…</div>}
+          {messages.length === 0 && !loading && (
+            <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 text-slate-300">
+              <Bot size={40} className="opacity-40" />
+              <p className="text-sm">یکی از سؤال‌های بالا را بزن یا خودت بنویس.</p>
+            </div>
+          )}
         </div>
 
         <form
@@ -92,10 +111,13 @@ export default function AssistantPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="سؤال خود را بنویسید…"
-            className="flex-1 rounded-lg border border-slate-300 px-4 py-2"
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
           />
-          <button className="btn" type="submit">
-            ارسال
+          <button
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-l from-violet-500 to-purple-500 px-5 py-2.5 font-medium text-white shadow-md shadow-violet-200 transition hover:opacity-90"
+            type="submit"
+          >
+            <Send size={16} /> ارسال
           </button>
         </form>
       </main>

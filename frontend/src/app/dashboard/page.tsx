@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { ChartCard } from "@/components/ChartCard";
+import { CallButton } from "@/components/CallButton";
+import { BackButton } from "@/components/BackButton";
 import { faNum } from "@/lib/utils";
 import {
   PhoneCall,
@@ -55,6 +57,10 @@ export default function DashboardPage() {
     queryKey: ["trend"],
     queryFn: async () => (await api.get("/dashboard/calls-trend")).data,
   });
+  const { data: followups } = useQuery({
+    queryKey: ["followups-today"],
+    queryFn: async () => (await api.get("/dashboard/followups/today")).data,
+  });
 
   const leadPie = s
     ? [
@@ -69,17 +75,20 @@ export default function DashboardPage() {
       {/* سرتیتر */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800">داشبورد مدیر فروش</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <h1 className="text-2xl font-extrabold text-white">داشبورد مدیر فروش</h1>
+          <p className="mt-1 text-sm text-slate-300">
             نمای کلی عملکرد فروش و سرنخ‌ها
           </p>
         </div>
-        <div className="rounded-full bg-gradient-to-l from-blue-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-blue-200">
-          {new Date().toLocaleDateString("fa-IR", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
+        <div className="flex items-center gap-2">
+          <div className="rounded-full bg-gradient-to-l from-sky-100 to-indigo-100 px-4 py-2 text-sm font-semibold text-indigo-600 ring-1 ring-white/60">
+            {new Date().toLocaleDateString("fa-IR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          </div>
+          <BackButton dark />
         </div>
       </div>
 
@@ -182,6 +191,39 @@ export default function DashboardPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </ChartCard>
+
+      {/* پیگیری‌های امروز — با دکمه‌ی تماس */}
+      <ChartCard title="پیگیری‌های امروز" subtitle="سرنخ‌هایی که امروز باید با آن‌ها تماس بگیری">
+        <div className="divide-y divide-slate-100">
+          {(followups?.items ?? []).length === 0 && (
+            <p className="py-6 text-center text-sm text-slate-400">پیگیری‌ای برای امروز ثبت نشده.</p>
+          )}
+          {(followups?.items ?? []).map((f: any) => (
+            <div key={f.id} className="flex items-center gap-3 py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-600">
+                {(f.student_name ?? "?").charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-slate-700">{f.student_name}</span>
+                  {f.lead_score != null && (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                      {f.lead_score}
+                    </span>
+                  )}
+                </div>
+                <div className="truncate text-xs text-slate-400">
+                  {f.course} · {f.note} {f.time && `· ساعت ${f.time}`}
+                </div>
+              </div>
+              <span className="hidden text-xs text-slate-400 sm:block" dir="ltr">
+                {f.mobile}
+              </span>
+              <CallButton mobile={f.mobile} size="sm" />
+            </div>
+          ))}
         </div>
       </ChartCard>
     </div>

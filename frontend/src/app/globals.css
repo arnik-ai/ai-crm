@@ -5,8 +5,9 @@
 @tailwind utilities;
 
 :root {
-  --background: #f6f8fb;
-  --foreground: #0f172a;
+  /* پس‌زمینه‌ی سرمه‌ای متوسط — تیره ولی نه مشکی؛ کارت‌های روشن رویش می‌درخشند */
+  --background: #334766;
+  --foreground: #e2e8f0;
 }
 
 body {
@@ -31,4 +32,17 @@ body {
 }
 .btn {
   @apply inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-white transition hover:bg-brand-dark;
+}
+
+/* پنل پاستیلی کم‌رنگ — هر بخش (فرم/جدول/کارت) را با ته‌رنگ ملایم از بقیه جدا می‌کند.
+   .panel-toolbar برای نوار جستجو/فیلتر، .panel برای جعبه‌ی اصلی محتوا. */
+.panel {
+  @apply rounded-2xl border bg-white shadow-sm;
+  border-color: #e8edf5;
+  background-image: linear-gradient(180deg, #fbfcfe 0%, #f7f9fc 100%);
+}
+.panel-toolbar {
+  @apply rounded-2xl border p-3;
+  border-color: #eef2f9;
+  background-color: #fafbfe;
 }
