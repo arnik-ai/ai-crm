@@ -22,7 +22,7 @@
 Workano → Webhook → CRM Backend (FastAPI) → Celery → AvalAI (Whisper/GPT-5.5)
         → LangGraph → PostgreSQL → Dashboard (Next.js)
 ```
-- لایه‌ی انتزاع `TelephonyProvider` → `WorkanoProvider` (آینده: Issabel/Asterisk)
+- لایه‌ی انتزاع `TelephonyProvider` → `WorkanoProvider` و `SimotelProvider` (آینده: Issabel/Asterisk)
 - لایه‌ی انتزاع `LLMProvider`/`SpeechToTextProvider` → `AvalAI*Provider`
 
 ## 📚 مستندات (پوشه‌ی docs)
@@ -32,7 +32,8 @@ Workano → Webhook → CRM Backend (FastAPI) → Celery → AvalAI (Whisper/GPT
 | [01-DATABASE](docs/01-DATABASE.md) | اسکیمای PostgreSQL + ERD + DDL |
 | [02-LANGGRAPH](docs/02-LANGGRAPH.md) | طراحی ایجنت‌ها، State، گراف، Retry |
 | [03-API](docs/03-API.md) | طراحی کامل REST API |
-| [04-WORKANO](docs/04-WORKANO.md) | یکپارچه‌سازی تلفنی |
+| [04-WORKANO](docs/04-WORKANO.md) | یکپارچه‌سازی تلفنی (Workano) |
+| [10-SIMOTEL](docs/10-SIMOTEL.md) | یکپارچه‌سازی تلفنی (سیموتل) ⭐ |
 | [05-AVALAI](docs/05-AVALAI.md) | یکپارچه‌سازی AI |
 | [06-SECURITY](docs/06-SECURITY.md) | معماری امنیت |
 | [07-DEPLOYMENT](docs/07-DEPLOYMENT.md) | استقرار Parspack + CI/CD |

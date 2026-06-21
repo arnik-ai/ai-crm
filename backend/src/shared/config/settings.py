@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     workano_api_key: str = ""
     workano_ip_allowlist: str = ""
 
+    # Simotel
+    simotel_webhook_token: str = ""
+    simotel_webhook_secret: str = ""
+    simotel_api_base: str = ""
+    simotel_api_token: str = ""
+
     # AI
     ai_provider: str = "avalai"
     avalai_api_key: str = ""
