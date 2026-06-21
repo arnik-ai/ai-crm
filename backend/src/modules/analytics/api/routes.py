@@ -33,6 +33,15 @@ async def team(
     return await DashboardService(session).team_performance(tenant_id=user.tenant_id)
 
 
+@router.get("/calls-trend")
+async def calls_trend(
+    days: int = 7,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("dashboard:read")),
+) -> dict:
+    return await DashboardService(session).calls_trend(tenant_id=user.tenant_id, days=days)
+
+
 @router.get("/followups/today")
 async def followups_today(
     session: AsyncSession = Depends(get_session),

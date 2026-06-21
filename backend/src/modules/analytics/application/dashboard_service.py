@@ -208,6 +208,39 @@ class DashboardService:
         ]
         return {"items": items}
 
+    async def calls_trend(self, tenant_id: str | None, days: int = 7) -> dict:
+        """روند تعداد تماس‌ها در N روز اخیر، به تفکیک ورودی/خروجی (برای نمودار خطی)."""
+        start = _start_of_today() - timedelta(days=days - 1)
+        day_col = func.date(Call.started_at).label("day")
+        rows = await self._s.execute(
+            select(
+                day_col,
+                func.coalesce(
+                    func.sum(case((Call.direction == "inbound", 1), else_=0)), 0
+                ).label("inbound"),
+                func.coalesce(
+                    func.sum(case((Call.direction == "outbound", 1), else_=0)), 0
+                ).label("outbound"),
+            )
+            .where(Call.started_at >= start)
+            .group_by(day_col)
+            .order_by(day_col)
+        )
+        by_day = {str(r.day): (int(r.inbound), int(r.outbound)) for r in rows}
+
+        # پر کردن روزهای خالی تا نمودار پیوسته باشد
+        points = []
+        for i in range(days):
+            d = (start + timedelta(days=i)).date()
+            inbound, outbound = by_day.get(str(d), (0, 0))
+            points.append({
+                "date": str(d),
+                "inbound": inbound,
+                "outbound": outbound,
+                "total": inbound + outbound,
+            })
+        return {"points": points}
+
     async def _conversion_rate(self) -> float:
         """نرخ تبدیل = سرنخ‌های مرحله‌ی نهاییِ ثبت‌نام‌شده ÷ کل سرنخ‌های فعال."""
         total = await self._s.scalar(
