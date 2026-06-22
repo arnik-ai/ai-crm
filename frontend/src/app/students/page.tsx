@@ -6,6 +6,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { ScoreLegend } from "@/components/ScoreLegend";
 import { BackButton } from "@/components/BackButton";
+import { ExportButton } from "@/components/ExportButton";
+import type { ExcelColumn } from "@/lib/exportExcel";
 import { Search, Users, GraduationCap, Phone } from "lucide-react";
 
 type Student = {
@@ -101,6 +103,21 @@ function Avatar({ name }: { name: string | null }) {
 
 const FILTERS = ["همه", "تجربی", "ریاضی", "انسانی"];
 
+// ستون‌های خروجی اکسل دانشجویان
+const EXCEL_COLUMNS: ExcelColumn<Student>[] = [
+  { key: "full_name", label: "نام و نام خانوادگی" },
+  { key: "mobile", label: "موبایل" },
+  { key: "city", label: "شهر" },
+  { key: "course", label: "رشته" },
+  { key: "grade", label: "پایه" },
+  { key: "goal", label: "هدف" },
+  { key: "lead_source", label: "منبع تماس" },
+  { key: "call_count", label: "تعداد تماس" },
+  { key: "lead_score", label: "امتیاز" },
+  { key: "stage", label: "مرحله فروش" },
+  { key: "status", label: "وضعیت" },
+];
+
 export default function StudentsPage() {
   const { data } = useQuery({
     queryKey: ["students"],
@@ -138,7 +155,10 @@ export default function StudentsPage() {
               <p className="mt-0.5 text-sm text-slate-300">{items.length} مورد · مرتب‌شده بر اساس امتیاز</p>
             </div>
           </div>
-          <BackButton dark />
+          <div className="flex items-center gap-2">
+            <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="دانشجویان" />
+            <BackButton dark />
+          </div>
         </div>
 
         {/* راهنمای رنگ امتیاز */}

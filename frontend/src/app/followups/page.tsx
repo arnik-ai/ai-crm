@@ -6,6 +6,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { CallButton } from "@/components/CallButton";
 import { Pagination } from "@/components/Pagination";
+import { ExportButton } from "@/components/ExportButton";
+import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum, faDateTime } from "@/lib/utils";
 import { Search, CalendarClock, CalendarCheck, ListTodo } from "lucide-react";
 
@@ -43,6 +45,15 @@ type FollowupsResponse = {
 };
 
 const PAGE_SIZE = 20;
+
+// ستون‌های خروجی اکسل پیگیری‌ها (از مقادیر نمایش‌داده‌شده)
+const EXCEL_COLUMNS: ExcelColumn<Followup>[] = [
+  { key: "student_name", label: "نام دانشجو" },
+  { key: "mobile", label: "موبایل" },
+  { key: "registered", label: "تاریخ ثبت" },
+  { key: "nextCall", label: "تماس بعدی" },
+  { key: "note", label: "توضیحات" },
+];
 
 /** آیا رشته یک تاریخ ISO است (مثلاً 2026-06-21T...)؟ */
 function isIso(s?: string): boolean {
@@ -111,7 +122,10 @@ export default function FollowupsPage() {
               </p>
             </div>
           </div>
-          <BackButton dark />
+          <div className="flex items-center gap-2">
+            <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="پیگیری‌ها" />
+            <BackButton dark />
+          </div>
         </div>
 
         {/* کارت‌های خلاصه */}

@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { Pagination } from "@/components/Pagination";
+import { ExportButton } from "@/components/ExportButton";
+import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum, faDateTime } from "@/lib/utils";
 import { Search, ShoppingCart, Receipt, Wallet, CreditCard } from "lucide-react";
 
@@ -59,6 +61,17 @@ function amountMillions(n: number): string {
 
 const FILTERS = ["همه", "کارت به کارت", "اقساط", "درگاه آنلاین"];
 
+// ستون‌های خروجی اکسل فروش (مبلغ به‌صورت عدد خام برای محاسبه در اکسل)
+const EXCEL_COLUMNS: ExcelColumn<Sale>[] = [
+  { key: "student_name", label: "نام مشتری" },
+  { key: "mobile", label: "موبایل" },
+  { key: "date", label: "تاریخ", format: (s) => showDate(s.date) },
+  { key: "course", label: "دوره" },
+  { key: "product", label: "محصول" },
+  { key: "amount", label: "مبلغ (تومان)", format: (s) => s.amount ?? 0 },
+  { key: "payment", label: "نوع پرداخت" },
+];
+
 export default function SalesPage() {
   const [page, setPage] = useState(1);
   const { data } = useQuery<SalesResponse>({
@@ -108,7 +121,10 @@ export default function SalesPage() {
               </p>
             </div>
           </div>
-          <BackButton dark />
+          <div className="flex items-center gap-2">
+            <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="لیست-فروش" />
+            <BackButton dark />
+          </div>
         </div>
 
         {/* کارت‌های خلاصه */}

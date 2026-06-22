@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { BackButton } from "@/components/BackButton";
+import { ExportButton } from "@/components/ExportButton";
+import type { ExcelColumn } from "@/lib/exportExcel";
 import { faDuration, faDateTime } from "@/lib/utils";
 import {
   PhoneIncoming,
@@ -126,6 +128,37 @@ const FILTERS = [
   { key: "missed", label: "بی‌پاسخ" },
 ];
 
+/** متن خوانای وضعیت/نتیجه‌ی تماس برای نمایش و خروجی اکسل. */
+function statusLabel(c: Call): string {
+  if (c.status === "missed") return "بی‌پاسخ";
+  const map: Record<string, string> = {
+    successful: "موفق",
+    unsuccessful: "ناموفق",
+    busy: "مشغول/مشترک",
+    no_answer: "پاسخ نداد",
+    follow_up: "پیگیری",
+  };
+  return c.outcome ? map[c.outcome] ?? c.outcome : "اقدام نشده";
+}
+
+/** متن جهت تماس برای خروجی اکسل. */
+function directionLabel(c: Call): string {
+  if (c.status === "missed") return "بی‌پاسخ";
+  return c.direction === "inbound" ? "ورودی" : "خروجی";
+}
+
+// ستون‌های خروجی اکسل تماس‌ها
+const EXCEL_COLUMNS: ExcelColumn<Call>[] = [
+  { key: "student_name", label: "نام", format: (c) => c.student_name ?? "ناشناس" },
+  { key: "caller_number", label: "شماره" },
+  { key: "direction", label: "جهت", format: directionLabel },
+  { key: "status", label: "وضعیت تماس", format: statusLabel },
+  { key: "duration_sec", label: "مدت (ثانیه)", format: (c) => c.duration_sec ?? 0 },
+  { key: "started_at", label: "تاریخ/زمان", format: (c) => faDateTime(c.started_at) },
+  { key: "lead_score", label: "امتیاز", format: (c) => c.lead_score ?? "" },
+  { key: "summary", label: "خلاصه هوش مصنوعی", format: (c) => c.summary ?? "" },
+];
+
 export default function CallsPage() {
   const { data } = useQuery({
     queryKey: ["calls"],
@@ -174,7 +207,10 @@ export default function CallsPage() {
               </p>
             </div>
           </div>
-          <BackButton dark />
+          <div className="flex items-center gap-2">
+            <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="تماس‌ها" />
+            <BackButton dark />
+          </div>
         </div>
 
         {/* کارت‌های آماری */}

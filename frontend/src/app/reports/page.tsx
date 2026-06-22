@@ -6,6 +6,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { faNum } from "@/lib/utils";
 import { getSession, isManager } from "@/lib/auth";
+import { ExportButton } from "@/components/ExportButton";
+import { exportToExcel } from "@/lib/exportExcel";
 import {
   BarChart3,
   PhoneIncoming,
@@ -18,6 +20,7 @@ import {
   Trophy,
   Lock,
   Award,
+  FileSpreadsheet,
 } from "lucide-react";
 
 type DailyReport = {
@@ -72,6 +75,28 @@ function levelClass(level?: string): string {
   if (level === "خوب") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   if (level === "قابل قبول") return "bg-amber-50 text-amber-700 ring-amber-200";
   return "bg-rose-50 text-rose-700 ring-rose-200"; // ضعیف
+}
+
+/** خروجی اکسل عملکرد ماهانه — ساختار تو-در-تو را به ردیف‌های مسطح تبدیل می‌کند. */
+function exportMonthly(monthly?: MonthlyPerformance): void {
+  if (!monthly?.agents?.length) return;
+  const months = monthly.months ?? [];
+  const rows = monthly.agents.map((a) => {
+    const row: Record<string, string | number> = { کارشناس: a.full_name };
+    for (const m of months) {
+      row[m] = a.months[m]?.score ?? "";
+    }
+    row["میانگین"] = a.avg_score;
+    row["سطح"] = a.level;
+    return row;
+  });
+  const columns = [
+    { key: "کارشناس", label: "کارشناس" },
+    ...months.map((m) => ({ key: m, label: m })),
+    { key: "میانگین", label: "میانگین امتیاز" },
+    { key: "سطح", label: "سطح" },
+  ];
+  exportToExcel(rows, columns, "عملکرد-ماهانه");
 }
 
 export default function ReportsPage() {
@@ -267,8 +292,25 @@ export default function ReportsPage() {
 
         {/* جدول عملکرد روز (مطابق عکس ۴ کارفرما) */}
         <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div className="border-b border-slate-100 p-4 font-bold text-slate-800">
-            عملکرد روز
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 p-4">
+            <span className="font-bold text-slate-800">عملکرد روز</span>
+            <ExportButton
+              rows={perf?.items ?? []}
+              columns={[
+                { key: "date", label: "تاریخ" },
+                { key: "total", label: "کل تماس" },
+                { key: "sales", label: "فروش روز" },
+                { key: "customers", label: "مشتری" },
+                { key: "successful", label: "موفق" },
+                { key: "busy", label: "مشترک" },
+                { key: "unsuccessful", label: "ناموفق" },
+                { key: "not_handled", label: "اقدام نشده" },
+                { key: "missed", label: "بی‌پاسخ" },
+                { key: "follow_up", label: "پیگیری" },
+                { key: "minutes", label: "دقیقه" },
+              ]}
+              filename="عملکرد-روز"
+            />
           </div>
           <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-slate-50 text-slate-500">
@@ -308,10 +350,20 @@ export default function ReportsPage() {
 
         {/* پنل عملکرد نیرو در طول ماه (مطابق عکس ۱ کارفرما) */}
         <div className="mt-6 overflow-x-auto rounded-2xl border border-emerald-100 bg-white shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 p-4">
-            <Award className="text-emerald-500" size={20} />
-            <span className="font-bold text-slate-800">عملکرد نیرو در طول ماه</span>
-            <span className="text-xs text-slate-400">(امتیاز از ۱۰۰ · سطح هر کارشناس به تفکیک ماه)</span>
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 p-4">
+            <div className="flex items-center gap-2">
+              <Award className="text-emerald-500" size={20} />
+              <span className="font-bold text-slate-800">عملکرد نیرو در طول ماه</span>
+              <span className="hidden text-xs text-slate-400 sm:inline">(امتیاز از ۱۰۰ · سطح هر کارشناس به تفکیک ماه)</span>
+            </div>
+            <button
+              onClick={() => exportMonthly(monthly)}
+              disabled={(monthly?.agents?.length ?? 0) === 0}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-green-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              title="خروجی اکسل عملکرد ماهانه"
+            >
+              <FileSpreadsheet size={16} /> خروجی اکسل
+            </button>
           </div>
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-gradient-to-l from-emerald-50 to-green-50 text-slate-600">
