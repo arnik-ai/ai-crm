@@ -23,6 +23,9 @@ type Call = {
   id: string;
   direction: "inbound" | "outbound";
   status?: string;
+  // نتیجه‌ی تماس از نظر فروش (دستیِ کارشناس):
+  // successful / unsuccessful / busy / no_answer / follow_up
+  outcome?: string | null;
   student_name?: string;
   caller_number: string;
   duration_sec: number;
@@ -32,6 +35,32 @@ type Call = {
   signals?: string[];
   confidence?: number;
 };
+
+/** نشان رنگیِ وضعیت/نتیجه‌ی تماس (مطابق ستون رنگی عکس ۶ کارفرما). */
+function StatusBadge({ status, outcome }: { status?: string; outcome?: string | null }) {
+  // اولویت با وضعیت فنی «بی‌پاسخ»؛ سپس نتیجه‌ی دستی کارشناس.
+  const map: Record<string, { label: string; cls: string }> = {
+    missed: { label: "بی‌پاسخ", cls: "bg-rose-100 text-rose-700 ring-rose-200" },
+    successful: { label: "موفق", cls: "bg-emerald-100 text-emerald-700 ring-emerald-200" },
+    unsuccessful: { label: "ناموفق", cls: "bg-rose-100 text-rose-700 ring-rose-200" },
+    busy: { label: "مشغول/مشترک", cls: "bg-amber-100 text-amber-700 ring-amber-200" },
+    no_answer: { label: "پاسخ نداد", cls: "bg-slate-100 text-slate-600 ring-slate-200" },
+    follow_up: { label: "پیگیری", cls: "bg-blue-100 text-blue-700 ring-blue-200" },
+  };
+  const key = status === "missed" ? "missed" : outcome ?? "";
+  const v = map[key];
+  if (!v)
+    return (
+      <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+        اقدام نشده
+      </span>
+    );
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${v.cls}`}>
+      {v.label}
+    </span>
+  );
+}
 
 /** نشان جهت + وضعیت تماس. */
 function DirectionTag({ direction, status }: { direction: string; status?: string }) {
@@ -212,6 +241,7 @@ export default function CallsPage() {
 
                 <div className="mr-auto flex flex-wrap items-center gap-4 text-sm">
                   <DirectionTag direction={c.direction} status={c.status} />
+                  <StatusBadge status={c.status} outcome={c.outcome} />
                   <span className="text-slate-500">{faDuration(c.duration_sec)}</span>
                   <span className="text-slate-400">{faDateTime(c.started_at)}</span>
                   <ScoreBadge score={c.lead_score} />

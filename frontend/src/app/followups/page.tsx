@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { CallButton } from "@/components/CallButton";
+import { Pagination } from "@/components/Pagination";
 import { faNum, faDateTime } from "@/lib/utils";
 import { Search, CalendarClock, CalendarCheck, ListTodo } from "lucide-react";
 
@@ -34,7 +35,14 @@ type Followup = {
   note: string;
 };
 
-type FollowupsResponse = { items: RawFollowup[] };
+type FollowupsResponse = {
+  items: RawFollowup[];
+  total?: number;
+  page?: number;
+  size?: number;
+};
+
+const PAGE_SIZE = 20;
 
 /** آیا رشته یک تاریخ ISO است (مثلاً 2026-06-21T...)؟ */
 function isIso(s?: string): boolean {
@@ -62,9 +70,12 @@ function normalize(r: RawFollowup): Followup {
 }
 
 export default function FollowupsPage() {
+  const [page, setPage] = useState(1);
   const { data } = useQuery<FollowupsResponse>({
-    queryKey: ["followups"],
-    queryFn: async () => (await api.get("/followups")).data,
+    queryKey: ["followups", page],
+    queryFn: async () =>
+      (await api.get(`/followups?page=${page}&size=${PAGE_SIZE}`)).data,
+    placeholderData: (prev) => prev,
   });
 
   const [q, setQ] = useState("");
@@ -181,6 +192,16 @@ export default function FollowupsPage() {
             </div>
           )}
         </div>
+
+        {/* صفحه‌بندی — فقط در نمای کامل (جستجو سمت‌سرور نیست). */}
+        {q.trim() === "" && (
+          <Pagination
+            page={data?.page ?? page}
+            size={data?.size ?? PAGE_SIZE}
+            total={data?.total ?? total}
+            onPage={setPage}
+          />
+        )}
       </main>
     </div>
   );

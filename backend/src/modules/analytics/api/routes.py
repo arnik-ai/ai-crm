@@ -79,3 +79,15 @@ async def daily_performance(
     return await DashboardService(session).daily_performance(
         tenant_id=user.tenant_id, days=days
     )
+
+
+@router.get("/monthly-performance")
+async def monthly_performance(
+    months: int = 6,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("dashboard:read")),
+) -> dict:
+    """پنل عملکرد نیرو در طول ماه — امتیاز و سطح هر کارشناس به تفکیک ماه."""
+    return await DashboardService(session).monthly_performance(
+        tenant_id=user.tenant_id, months=months
+    )

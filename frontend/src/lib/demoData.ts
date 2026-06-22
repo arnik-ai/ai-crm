@@ -75,17 +75,17 @@ export const demoStudents = {
 
 export const demoCalls = {
   items: [
-    { id: "1", direction: "inbound", status: "answered",
+    { id: "1", direction: "inbound", status: "answered", outcome: "successful",
       student_name: "سارا محمدی", caller_number: "+989121234567",
       duration_sec: 372, started_at: "2026-06-21T08:30:00Z", lead_score: 78,
       summary: "علاقه‌مند به دوره‌ی تجربی؛ نگران شهریه است. پیشنهاد اقساط احتمال ثبت‌نام را بالا می‌برد.",
       signals: ["پرسیدن درباره‌ی اقساط", "درخواست مشاوره حضوری"], confidence: 0.92 },
-    { id: "2", direction: "outbound", status: "answered",
+    { id: "2", direction: "outbound", status: "answered", outcome: "follow_up",
       student_name: "علی رضایی", caller_number: "+989352223344",
       duration_sec: 145, started_at: "2026-06-21T09:15:00Z", lead_score: 52,
       summary: "تماس پیگیری؛ هنوز در حال تصمیم‌گیری بین دو مؤسسه است.",
       signals: ["مقایسه با رقبا"], confidence: 0.74 },
-    { id: "3", direction: "inbound", status: "answered",
+    { id: "3", direction: "inbound", status: "answered", outcome: "successful",
       student_name: "نگار حسینی", caller_number: "+989019998877",
       duration_sec: 521, started_at: "2026-06-21T10:05:00Z", lead_score: 91,
       summary: "سرنخ داغ! آماده‌ی ثبت‌نام برای دندان‌پزشکی؛ فقط منتظر هماهنگی زمان کلاس است.",
@@ -95,7 +95,7 @@ export const demoCalls = {
       duration_sec: 0, started_at: "2026-06-21T11:40:00Z", lead_score: 33,
       summary: "تماس بی‌پاسخ — نیاز به پیگیری.",
       signals: [], confidence: 1 },
-    { id: "5", direction: "outbound", status: "answered",
+    { id: "5", direction: "outbound", status: "answered", outcome: "busy",
       student_name: "زهرا اکبری", caller_number: "+989364445566",
       duration_sec: 264, started_at: "2026-06-21T13:20:00Z", lead_score: 67,
       summary: "سؤال درباره‌ی شهریه و تخفیف؛ احتمالاً علاقه‌مند ولی صدا واضح نبود — نیاز به بازبینی.",
@@ -144,13 +144,13 @@ export const demoTeam = {
 // جدول «عملکرد روز» — چند روز اخیر (مطابق عکس ۴ کارفرما)
 export const demoDailyPerformance = {
   items: [
-    { date: "2026-06-22", total: 80, successful: 14, busy: 3, unsuccessful: 9, missed: 7, follow_up: 11, minutes: 326.5 },
-    { date: "2026-06-21", total: 72, successful: 11, busy: 5, unsuccessful: 8, missed: 6, follow_up: 9, minutes: 298.0 },
-    { date: "2026-06-20", total: 91, successful: 18, busy: 2, unsuccessful: 12, missed: 9, follow_up: 14, minutes: 372.5 },
-    { date: "2026-06-19", total: 64, successful: 9, busy: 4, unsuccessful: 7, missed: 5, follow_up: 8, minutes: 254.0 },
-    { date: "2026-06-18", total: 78, successful: 13, busy: 3, unsuccessful: 10, missed: 8, follow_up: 12, minutes: 311.5 },
-    { date: "2026-06-17", total: 55, successful: 7, busy: 6, unsuccessful: 5, missed: 4, follow_up: 6, minutes: 210.0 },
-    { date: "2026-06-16", total: 83, successful: 15, busy: 2, unsuccessful: 11, missed: 7, follow_up: 13, minutes: 340.0 },
+    { date: "2026-06-22", total: 80, sales: 5, customers: 34, successful: 14, busy: 3, unsuccessful: 9, not_handled: 6, missed: 7, follow_up: 11, minutes: 326.5 },
+    { date: "2026-06-21", total: 72, sales: 3, customers: 29, successful: 11, busy: 5, unsuccessful: 8, not_handled: 8, missed: 6, follow_up: 9, minutes: 298.0 },
+    { date: "2026-06-20", total: 91, sales: 7, customers: 41, successful: 18, busy: 2, unsuccessful: 12, not_handled: 5, missed: 9, follow_up: 14, minutes: 372.5 },
+    { date: "2026-06-19", total: 64, sales: 2, customers: 24, successful: 9, busy: 4, unsuccessful: 7, not_handled: 9, missed: 5, follow_up: 8, minutes: 254.0 },
+    { date: "2026-06-18", total: 78, sales: 4, customers: 32, successful: 13, busy: 3, unsuccessful: 10, not_handled: 7, missed: 8, follow_up: 12, minutes: 311.5 },
+    { date: "2026-06-17", total: 55, sales: 1, customers: 19, successful: 7, busy: 6, unsuccessful: 5, not_handled: 11, missed: 4, follow_up: 6, minutes: 210.0 },
+    { date: "2026-06-16", total: 83, sales: 6, customers: 37, successful: 15, busy: 2, unsuccessful: 11, not_handled: 4, missed: 7, follow_up: 13, minutes: 340.0 },
   ],
 };
 
@@ -178,6 +178,45 @@ export const demoFollowups = {
   ],
 };
 
+// عملکرد نیرو در طول ماه — امتیاز و سطح هر کارشناس به تفکیک ماه (مطابق عکس ۱)
+export const demoMonthlyPerformance = {
+  months: ["1405-04", "1405-03", "1405-02"],
+  agents: [
+    {
+      id: "a1", full_name: "مریم رضایی", avg_score: 78.3, level: "خوب",
+      months: {
+        "1405-04": { calls: 312, minutes: 642, sales: 18, followups: 41, score: 82.5, level: "خوب" },
+        "1405-03": { calls: 288, minutes: 598, sales: 15, followups: 38, score: 76.0, level: "خوب" },
+        "1405-02": { calls: 264, minutes: 553, sales: 13, followups: 35, score: 76.4, level: "خوب" },
+      },
+    },
+    {
+      id: "a2", full_name: "حسین کریمی", avg_score: 61.7, level: "قابل قبول",
+      months: {
+        "1405-04": { calls: 245, minutes: 510, sales: 11, followups: 29, score: 64.2, level: "قابل قبول" },
+        "1405-03": { calls: 231, minutes: 487, sales: 9, followups: 26, score: 58.5, level: "قابل قبول" },
+        "1405-02": { calls: 252, minutes: 521, sales: 10, followups: 31, score: 62.4, level: "قابل قبول" },
+      },
+    },
+    {
+      id: "a3", full_name: "فاطمه احمدی", avg_score: 54.0, level: "قابل قبول",
+      months: {
+        "1405-04": { calls: 198, minutes: 432, sales: 8, followups: 22, score: 52.1, level: "قابل قبول" },
+        "1405-03": { calls: 210, minutes: 455, sales: 9, followups: 25, score: 56.8, level: "قابل قبول" },
+        "1405-02": { calls: 187, minutes: 401, sales: 7, followups: 20, score: 53.1, level: "قابل قبول" },
+      },
+    },
+    {
+      id: "a4", full_name: "علی موسوی", avg_score: 33.2, level: "ضعیف",
+      months: {
+        "1405-04": { calls: 134, minutes: 268, sales: 4, followups: 12, score: 31.5, level: "ضعیف" },
+        "1405-03": { calls: 142, minutes: 290, sales: 5, followups: 14, score: 35.8, level: "ضعیف" },
+        "1405-02": { calls: 128, minutes: 255, sales: 3, followups: 11, score: 32.3, level: "ضعیف" },
+      },
+    },
+  ],
+};
+
 /** نگاشت مسیر API → داده‌ی دموی متناظر. */
 export const demoByPath: Record<string, unknown> = {
   "/dashboard/summary": demoSummary,
@@ -186,6 +225,7 @@ export const demoByPath: Record<string, unknown> = {
   "/dashboard/followups/today": demoFollowupsToday,
   "/dashboard/daily-report": demoDailyReport,
   "/dashboard/daily-performance": demoDailyPerformance,
+  "/dashboard/monthly-performance": demoMonthlyPerformance,
   "/dashboard/team": demoTeam,
   "/students": demoStudents,
   "/calls": demoCalls,

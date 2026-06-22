@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
+import { Pagination } from "@/components/Pagination";
 import { faNum, faDateTime } from "@/lib/utils";
 import { Search, ShoppingCart, Receipt, Wallet, CreditCard } from "lucide-react";
 
@@ -28,7 +29,11 @@ type SalesResponse = {
   items: Sale[];
   total_amount: number;
   count: number;
+  page?: number;
+  size?: number;
 };
+
+const PAGE_SIZE = 20;
 
 /** نشان رنگی نوع پرداخت. */
 function PaymentBadge({ payment }: { payment?: string | null }) {
@@ -55,9 +60,12 @@ function amountMillions(n: number): string {
 const FILTERS = ["همه", "کارت به کارت", "اقساط", "درگاه آنلاین"];
 
 export default function SalesPage() {
+  const [page, setPage] = useState(1);
   const { data } = useQuery<SalesResponse>({
-    queryKey: ["sales"],
-    queryFn: async () => (await api.get("/sales")).data,
+    queryKey: ["sales", page],
+    queryFn: async () =>
+      (await api.get(`/sales?page=${page}&size=${PAGE_SIZE}`)).data,
+    placeholderData: (prev) => prev, // جلوگیری از پرش هنگام تعویض صفحه
   });
 
   const [q, setQ] = useState("");
@@ -201,6 +209,17 @@ export default function SalesPage() {
             </div>
           )}
         </div>
+
+        {/* صفحه‌بندی — فقط در نمای کامل (وقتی جستجو/فیلتر فعال نیست، چون جستجو
+            سمت‌سرور نیست و باید کل صفحه‌ها پیمایش شوند). */}
+        {q.trim() === "" && payment === "همه" && (
+          <Pagination
+            page={data?.page ?? page}
+            size={data?.size ?? PAGE_SIZE}
+            total={count}
+            onPage={setPage}
+          />
+        )}
       </main>
     </div>
   );

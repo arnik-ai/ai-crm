@@ -298,9 +298,107 @@ class DashboardService:
             "total_minutes": round(total_sec / 60, 1),
         }
 
+    async def monthly_performance(self, tenant_id: str | None,
+                                  months: int = 6) -> dict:
+        """پنل «عملکرد نیرو در طول ماه» (مطابق اکسل کارفرما، عکس ۱).
+
+        برای هر کارشناس و هر ماهِ N ماه اخیر، شاخص‌های عملکرد را تجمیع می‌کند:
+          - تعداد تماس، جمع دقیقه مکالمه، تعداد پیگیری، تعداد فروش (successful)
+        سپس امتیاز کل (از ۱۰۰) و سطح (ضعیف/قابل‌قبول/خوب) را محاسبه می‌کند.
+
+        مقیاس‌پذیری: کل محاسبه با aggregate سمت دیتابیس (group_by ماه+کارشناس)
+        انجام می‌شود؛ هیچ رکورد خامی به اپلیکیشن منتقل نمی‌شود.
+        """
+        start = _start_of_today() - timedelta(days=months * 31)
+        month_col = func.to_char(Call.started_at, "YYYY-MM").label("month")
+
+        # تجمیع تماس‌ها به تفکیک کارشناس + ماه
+        call_rows = await self._s.execute(
+            select(
+                Call.agent_id.label("agent_id"),
+                month_col,
+                func.count(Call.id).label("calls"),
+                func.coalesce(func.sum(Call.duration_sec), 0).label("sec"),
+                func.coalesce(
+                    func.sum(case((Call.outcome == "successful", 1), else_=0)), 0
+                ).label("sales"),
+                func.coalesce(
+                    func.sum(case((Call.outcome == "follow_up", 1), else_=0)), 0
+                ).label("followups"),
+            )
+            .where(Call.started_at >= start, Call.agent_id.isnot(None))
+            .group_by(Call.agent_id, month_col)
+        )
+
+        # نام کارشناسان (یک کوئری، نه N کوئری)
+        user_rows = await self._s.execute(
+            select(User.id, User.full_name).where(User.is_active.is_(True))
+        )
+        names = {u.id: u.full_name for u in user_rows}
+
+        # ساختار: agent_id → { month → metrics }
+        agents: dict = {}
+        for r in call_rows:
+            a = agents.setdefault(
+                r.agent_id,
+                {"id": str(r.agent_id),
+                 "full_name": names.get(r.agent_id, "نامشخص"),
+                 "months": {}},
+            )
+            a["months"][r.month] = {
+                "calls": int(r.calls),
+                "minutes": round(int(r.sec) / 60, 1),
+                "sales": int(r.sales),
+                "followups": int(r.followups),
+                "score": self._monthly_score(int(r.calls), int(r.sec),
+                                             int(r.sales), int(r.followups)),
+            }
+
+        # افزودن سطح بر اساس امتیاز و مرتب‌سازی نزولی بر اساس میانگین امتیاز
+        result = []
+        for a in agents.values():
+            for m in a["months"].values():
+                m["level"] = self._score_level(m["score"])
+            scores = [m["score"] for m in a["months"].values()]
+            a["avg_score"] = round(sum(scores) / len(scores), 1) if scores else 0.0
+            a["level"] = self._score_level(a["avg_score"])
+            result.append(a)
+        result.sort(key=lambda x: x["avg_score"], reverse=True)
+
+        # فهرست ماه‌های موجود (برای ستون‌های جدول در فرانت)، نزولی
+        all_months = sorted(
+            {m for a in result for m in a["months"].keys()}, reverse=True
+        )
+        return {"agents": result, "months": all_months}
+
+    @staticmethod
+    def _monthly_score(calls: int, sec: int, sales: int, followups: int) -> float:
+        """امتیاز ۰..۱۰۰ از ترکیب شاخص‌ها (وزن‌دهیِ ساده و شفاف).
+
+        فروش مهم‌ترین وزن را دارد، سپس تماس، مکالمه و پیگیری. هدف‌ها سقفِ
+        امتیازِ کامل هر بخش‌اند (قابل تنظیم در آینده per-tenant).
+        """
+        minutes = sec / 60
+        # وزن‌ها: فروش ۴۰، تماس ۲۵، دقیقه مکالمه ۲۰، پیگیری ۱۵
+        sales_pts = min(sales / 20, 1) * 40       # هدف ماهانه: ۲۰ فروش
+        calls_pts = min(calls / 300, 1) * 25      # هدف: ۳۰۰ تماس
+        minutes_pts = min(minutes / 600, 1) * 20  # هدف: ۶۰۰ دقیقه
+        follow_pts = min(followups / 60, 1) * 15  # هدف: ۶۰ پیگیری
+        return round(sales_pts + calls_pts + minutes_pts + follow_pts, 1)
+
+    @staticmethod
+    def _score_level(score: float) -> str:
+        """سطح‌بندی مطابق اکسل کارفرما: ضعیف / قابل قبول / خوب."""
+        if score >= 70:
+            return "خوب"
+        if score >= 40:
+            return "قابل قبول"
+        return "ضعیف"
+
     async def daily_performance(self, tenant_id: str | None, days: int = 14) -> dict:
-        """جدول «عملکرد روز» (مطابق اکسل کارفرما) — هر ردیف یک روز در N روز اخیر.
-        ستون‌ها: تاریخ، موفق، مشترک، ناموفق، بی‌پاسخ، پیگیری، جمع تماس، دقیقه."""
+        """جدول «عملکرد روز» (مطابق اکسل کارفرما، عکس ۴) — هر ردیف یک روز.
+        ستون‌ها: تاریخ، فروش‌روز، مشتری، موفق، مشترک/مشغول، ناموفق،
+        اقدام‌نشده، بی‌پاسخ، پیگیری، جمع تماس، دقیقه."""
         start = _start_of_today() - timedelta(days=days - 1)
         day_col = func.date(Call.started_at).label("day")
         rows = await self._s.execute(
@@ -322,14 +420,25 @@ class DashboardService:
                 func.coalesce(
                     func.sum(case((Call.outcome == "follow_up", 1), else_=0)), 0
                 ).label("follow_up"),
+                # اقدام‌نشده: تماسِ پاسخ‌داده‌شده که هنوز نتیجه (outcome) ثبت نشده
+                func.coalesce(
+                    func.sum(case(
+                        (and_(Call.outcome.is_(None), Call.status != "missed"), 1),
+                        else_=0,
+                    )), 0
+                ).label("not_handled"),
+                # مشتری: تماس‌های مرتبط با یک دانشجوی موجود
+                func.coalesce(
+                    func.sum(case((Call.student_id.isnot(None), 1), else_=0)), 0
+                ).label("customers"),
                 func.coalesce(func.sum(Call.duration_sec), 0).label("sec"),
             )
             .where(Call.started_at >= start)
             .group_by(day_col)
             .order_by(day_col.desc())
         )
-        items = [
-            {
+        items = {
+            str(r.day): {
                 "date": str(r.day),
                 "total": int(r.total),
                 "successful": int(r.successful),
@@ -337,8 +446,31 @@ class DashboardService:
                 "unsuccessful": int(r.unsuccessful),
                 "missed": int(r.missed),
                 "follow_up": int(r.follow_up),
+                "not_handled": int(r.not_handled),
+                "customers": int(r.customers),
+                "sales": 0,  # تکمیل از کوئری فروش پایین
                 "minutes": round(int(r.sec) / 60, 1),
             }
             for r in rows
-        ]
-        return {"items": items}
+        }
+
+        # فروش روز: دانشجویانی که آن روز ساخته شده و به مرحله‌ی ثبت‌نام رسیده‌اند.
+        sale_day = func.date(Student.created_at).label("day")
+        sale_rows = await self._s.execute(
+            select(sale_day, func.count(Student.id).label("sales"))
+            .join(SalesStage, SalesStage.id == Student.sales_stage_id)
+            .where(
+                Student.created_at >= start,
+                Student.deleted_at.is_(None),
+                SalesStage.is_terminal.is_(True),
+                SalesStage.name.notin_(["Lost", "ازدست‌رفته"]),
+            )
+            .group_by(sale_day)
+        )
+        for r in sale_rows:
+            if str(r.day) in items:
+                items[str(r.day)]["sales"] = int(r.sales)
+
+        # مرتب‌سازی نزولی بر اساس تاریخ
+        ordered = [items[k] for k in sorted(items.keys(), reverse=True)]
+        return {"items": ordered}

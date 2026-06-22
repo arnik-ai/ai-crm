@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Trophy,
   Lock,
+  Award,
 } from "lucide-react";
 
 type DailyReport = {
@@ -41,8 +42,37 @@ type Agent = {
   sales_amount?: number;
 };
 
+type MonthCell = {
+  calls: number;
+  minutes: number;
+  sales: number;
+  followups: number;
+  score: number;
+  level: string;
+};
+
+type MonthlyAgent = {
+  id: string;
+  full_name: string;
+  avg_score: number;
+  level: string;
+  months: Record<string, MonthCell>;
+};
+
+type MonthlyPerformance = {
+  months: string[];
+  agents: MonthlyAgent[];
+};
+
 const card =
   "rounded-2xl border bg-white p-4 shadow-sm flex items-center gap-3";
+
+/** کلاس رنگی سلول بر اساس سطح عملکرد (مطابق رنگ‌بندی اکسل کارفرما). */
+function levelClass(level?: string): string {
+  if (level === "خوب") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (level === "قابل قبول") return "bg-amber-50 text-amber-700 ring-amber-200";
+  return "bg-rose-50 text-rose-700 ring-rose-200"; // ضعیف
+}
 
 export default function ReportsPage() {
   // گارد نقش: این صفحه «پنل مدیر فروش» است و فقط برای مدیر/ادمین باز است.
@@ -67,6 +97,11 @@ export default function ReportsPage() {
   const { data: perf } = useQuery({
     queryKey: ["daily-performance"],
     queryFn: async () => (await api.get("/dashboard/daily-performance")).data,
+    enabled,
+  });
+  const { data: monthly } = useQuery<MonthlyPerformance>({
+    queryKey: ["monthly-performance"],
+    queryFn: async () => (await api.get("/dashboard/monthly-performance")).data,
     enabled,
   });
 
@@ -235,14 +270,17 @@ export default function ReportsPage() {
           <div className="border-b border-slate-100 p-4 font-bold text-slate-800">
             عملکرد روز
           </div>
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[860px] text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="p-3 text-right font-medium">تاریخ</th>
                 <th className="p-3 text-center font-medium">کل تماس</th>
+                <th className="p-3 text-center font-medium">فروش روز</th>
+                <th className="p-3 text-center font-medium">مشتری</th>
                 <th className="p-3 text-center font-medium">موفق</th>
                 <th className="p-3 text-center font-medium">مشترک</th>
                 <th className="p-3 text-center font-medium">ناموفق</th>
+                <th className="p-3 text-center font-medium">اقدام نشده</th>
                 <th className="p-3 text-center font-medium">بی‌پاسخ</th>
                 <th className="p-3 text-center font-medium">پیگیری</th>
                 <th className="p-3 text-center font-medium">دقیقه</th>
@@ -253,9 +291,12 @@ export default function ReportsPage() {
                 <tr key={d.date} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
                   <td className="p-3 font-medium text-slate-700" dir="ltr">{d.date}</td>
                   <td className="p-3 text-center text-slate-600">{faNum(d.total)}</td>
+                  <td className="p-3 text-center font-bold text-green-600">{faNum(d.sales ?? 0)}</td>
+                  <td className="p-3 text-center text-sky-600">{faNum(d.customers ?? 0)}</td>
                   <td className="p-3 text-center font-bold text-emerald-600">{faNum(d.successful)}</td>
                   <td className="p-3 text-center text-amber-600">{faNum(d.busy)}</td>
                   <td className="p-3 text-center text-rose-600">{faNum(d.unsuccessful)}</td>
+                  <td className="p-3 text-center text-orange-600">{faNum(d.not_handled ?? 0)}</td>
                   <td className="p-3 text-center text-slate-500">{faNum(d.missed)}</td>
                   <td className="p-3 text-center text-blue-600">{faNum(d.follow_up)}</td>
                   <td className="p-3 text-center text-violet-600">{faNum(d.minutes)}</td>
@@ -263,6 +304,65 @@ export default function ReportsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* پنل عملکرد نیرو در طول ماه (مطابق عکس ۱ کارفرما) */}
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-emerald-100 bg-white shadow-sm">
+          <div className="flex items-center gap-2 border-b border-slate-100 p-4">
+            <Award className="text-emerald-500" size={20} />
+            <span className="font-bold text-slate-800">عملکرد نیرو در طول ماه</span>
+            <span className="text-xs text-slate-400">(امتیاز از ۱۰۰ · سطح هر کارشناس به تفکیک ماه)</span>
+          </div>
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-gradient-to-l from-emerald-50 to-green-50 text-slate-600">
+              <tr>
+                <th className="p-3 text-right font-medium">کارشناس</th>
+                {(monthly?.months ?? []).map((m) => (
+                  <th key={m} className="p-3 text-center font-medium" dir="ltr">{m}</th>
+                ))}
+                <th className="p-3 text-center font-medium">میانگین</th>
+                <th className="p-3 text-center font-medium">سطح</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(monthly?.agents ?? []).map((a, i) => (
+                <tr key={a.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                  <td className="p-3 font-medium text-slate-700">{a.full_name}</td>
+                  {(monthly?.months ?? []).map((m) => {
+                    const cell = a.months[m];
+                    return (
+                      <td key={m} className="p-2 text-center">
+                        {cell ? (
+                          <span
+                            className={`inline-flex min-w-[3rem] flex-col items-center rounded-lg px-2 py-1 text-xs font-bold ring-1 ${levelClass(cell.level)}`}
+                            title={`تماس: ${cell.calls} · دقیقه: ${cell.minutes} · فروش: ${cell.sales} · پیگیری: ${cell.followups}`}
+                          >
+                            {faNum(cell.score)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="p-3 text-center font-extrabold text-slate-800">{faNum(a.avg_score)}</td>
+                  <td className="p-3 text-center">
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${levelClass(a.level)}`}>
+                      {a.level}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* حالت خالی */}
+          {(monthly?.agents?.length ?? 0) === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
+              <Award size={36} className="opacity-40" />
+              <p className="text-sm">هنوز داده‌ای برای عملکرد ماهانه ثبت نشده است.</p>
+            </div>
+          )}
         </div>
       </main>
     </div>
