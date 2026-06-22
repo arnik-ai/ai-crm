@@ -1,0 +1,27 @@
+{
+  "name": "CRM هوشمند مؤسسات آموزشی",
+  "short_name": "CRM هوشمند",
+  "description": "CRM هوش‌مصنوعی‌محور با یکپارچه‌سازی تلفنی و تحلیل تماس",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#334766",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
