@@ -1,9 +1,9 @@
 import axios from "axios";
 import { demoByPath } from "./demoData";
 
-// حالت دمو: اگر NEXT_PUBLIC_DEMO=1 باشد یا بک‌اند در دسترس نباشد،
-// داده‌ی نمونه نمایش داده می‌شود (برای دیدن ظاهر بدون دیتابیس).
-const DEMO_FORCED = process.env.NEXT_PUBLIC_DEMO === "1";
+// حالت دمو: به‌صورت پیش‌فرض روشن است (برای نمایش ظاهر روی Vercel بدون بک‌اند).
+// وقتی بک‌اند واقعی وصل شد، با تنظیم NEXT_PUBLIC_DEMO=0 خاموش می‌شود.
+const DEMO_FORCED = process.env.NEXT_PUBLIC_DEMO !== "0";
 
 function demoFor(url?: string) {
   if (!url) return undefined;
