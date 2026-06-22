@@ -2,12 +2,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Phone, Bot, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Phone, Bot, BarChart3, Menu, X } from "lucide-react";
 
 const items = [
   { href: "/dashboard", label: "داشبورد", icon: LayoutDashboard },
   { href: "/students", label: "دانشجویان / سرنخ‌ها", icon: Users },
   { href: "/calls", label: "تماس‌ها", icon: Phone },
+  { href: "/reports", label: "گزارش‌ها", icon: BarChart3 },
   { href: "/assistant", label: "دستیار هوشمند", icon: Bot },
 ];
 

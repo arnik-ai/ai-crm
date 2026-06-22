@@ -1,31 +1,50 @@
 """Schemaهای CRM — اعتبارسنجی ورودی/خروجی."""
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# مقادیر مجاز رشته/پایه/منبع تماس
+StudyField = Literal["تجربی", "ریاضی", "انسانی", "سایر"]
+Grade = Literal["دهم", "یازدهم", "دوازدهم", "فارغ‌التحصیل", "سایر"]
+LeadSource = Literal["سایت", "اینستاگرام", "تلگرام", "روبیکا", "بله", "پیامک", "سایر"]
+
+
+def _normalize_mobile(v: str) -> str:
+    v = v.strip().replace(" ", "")
+    if v.startswith("0"):
+        v = "+98" + v[1:]
+    elif not v.startswith("+"):
+        v = "+" + v
+    return v
 
 
 class StudentCreate(BaseModel):
     full_name: str | None = None
     mobile: str = Field(pattern=r"^\+?\d{10,15}$")
+    city: str | None = None
+    field: StudyField | None = None
+    grade: Grade | None = None
+    goal: str | None = None
     course_interest_id: UUID | None = None
-    lead_source: str | None = None
+    lead_source: LeadSource | None = None
     assigned_agent_id: UUID | None = None
 
     @field_validator("mobile")
     @classmethod
     def normalize_mobile(cls, v: str) -> str:
-        v = v.strip().replace(" ", "")
-        if v.startswith("0"):
-            v = "+98" + v[1:]
-        elif not v.startswith("+"):
-            v = "+" + v
-        return v
+        return _normalize_mobile(v)
 
 
 class StudentUpdate(BaseModel):
     full_name: str | None = None
+    city: str | None = None
+    field: StudyField | None = None
+    grade: Grade | None = None
+    goal: str | None = None
     course_interest_id: UUID | None = None
+    lead_source: LeadSource | None = None
     assigned_agent_id: UUID | None = None
     status: str | None = None
 
@@ -35,6 +54,11 @@ class StudentOut(BaseModel):
     id: UUID
     full_name: str | None
     mobile: str
+    city: str | None = None
+    field: str | None = None
+    grade: str | None = None
+    goal: str | None = None
+    lead_source: str | None = None
     status: str
     sales_stage_id: UUID | None
     created_at: datetime

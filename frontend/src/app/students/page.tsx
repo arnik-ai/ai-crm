@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { ScoreLegend } from "@/components/ScoreLegend";
 import { BackButton } from "@/components/BackButton";
-import { Search, Users, GraduationCap } from "lucide-react";
+import { Search, Users, GraduationCap, Phone } from "lucide-react";
 
 type Student = {
   id: string;
@@ -16,6 +16,9 @@ type Student = {
   course?: string;
   grade?: string;
   goal?: string;
+  city?: string;
+  lead_source?: string;
+  call_count?: number;
   lead_score?: number;
   stage?: string;
   last_call?: string;
@@ -56,6 +59,24 @@ function StageBadge({ stage }: { stage?: string }) {
   return (
     <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
       {stage}
+    </span>
+  );
+}
+
+/** نشان رنگی منبع تماس (اینستاگرام/تلگرام/سایت/...). */
+function SourceBadge({ source }: { source?: string }) {
+  if (!source) return <span className="text-slate-300">—</span>;
+  const tone: Record<string, string> = {
+    "اینستاگرام": "bg-pink-50 text-pink-600",
+    "تلگرام": "bg-sky-50 text-sky-600",
+    "روبیکا": "bg-orange-50 text-orange-600",
+    "بله": "bg-emerald-50 text-emerald-600",
+    "پیامک": "bg-violet-50 text-violet-600",
+    "سایت": "bg-blue-50 text-blue-600",
+  };
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${tone[source] ?? "bg-slate-100 text-slate-600"}`}>
+      {source}
     </span>
   );
 }
@@ -157,12 +178,14 @@ export default function StudentsPage() {
             <thead className="bg-gradient-to-l from-sky-50 to-indigo-50 text-slate-600">
               <tr>
                 <th className="p-3.5 text-right font-medium">دانشجو</th>
+                <th className="p-3.5 text-right font-medium">شهر</th>
                 <th className="p-3.5 text-right font-medium">رشته</th>
                 <th className="p-3.5 text-right font-medium">پایه</th>
                 <th className="p-3.5 text-right font-medium">هدف</th>
+                <th className="p-3.5 text-right font-medium">منبع</th>
                 <th className="p-3.5 text-center font-medium">امتیاز</th>
                 <th className="p-3.5 text-right font-medium">مرحله</th>
-                <th className="p-3.5 text-right font-medium">آخرین تماس</th>
+                <th className="p-3.5 text-center font-medium">تماس‌ها</th>
                 <th className="p-3.5 text-center font-medium">اقدام</th>
               </tr>
             </thead>
@@ -191,12 +214,21 @@ export default function StudentsPage() {
                       </div>
                     </div>
                   </td>
+                  <td className="p-3.5 text-slate-600">{s.city ?? "—"}</td>
                   <td className="p-3.5"><FieldBadge field={s.course} /></td>
                   <td className="p-3.5 text-slate-600">{s.grade ?? "—"}</td>
                   <td className="p-3.5 text-slate-500">{s.goal ?? "—"}</td>
+                  <td className="p-3.5"><SourceBadge source={s.lead_source} /></td>
                   <td className="p-3.5 text-center"><ScoreBadge score={s.lead_score} /></td>
                   <td className="p-3.5"><StageBadge stage={s.stage} /></td>
-                  <td className="p-3.5 text-slate-400">{s.last_call ?? "—"}</td>
+                  <td className="p-3.5 text-center">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                      title={`${s.call_count ?? 0} بار تماس گرفته شده`}
+                    >
+                      <Phone size={12} /> {s.call_count ?? 0}
+                    </span>
+                  </td>
                   <td className="p-3.5 text-center">
                     <CallButton mobile={s.mobile} size="sm" />
                   </td>

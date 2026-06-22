@@ -259,3 +259,86 @@ class DashboardService:
             )
         )
         return (converted or 0) / total
+
+    async def daily_report(self, tenant_id: str | None, target_day: datetime) -> dict:
+        """گزارش روزانه‌ی تماس‌ها برای یک روز مشخص (مطابق اکسل کارفرما):
+        تعداد ورودی/خروجی/بی‌پاسخ + نتیجه‌ی فروش (موفق/مشترک/ناموفق/پیگیری) + جمع زمان مکالمه."""
+        start = datetime.combine(target_day.date(), time.min, tzinfo=timezone.utc)
+        end = start + timedelta(days=1)
+        base = (Call.started_at >= start, Call.started_at < end)
+
+        async def _count(*conds) -> int:
+            return await self._s.scalar(
+                select(func.count(Call.id)).where(*base, *conds)
+            ) or 0
+
+        inbound = await _count(Call.direction == "inbound", Call.status != "missed")
+        outbound = await _count(Call.direction == "outbound")
+        missed = await _count(Call.status == "missed")
+        # نتیجه‌ی فروشِ دستی (فیلد outcome)
+        successful = await _count(Call.outcome == "successful")
+        unsuccessful = await _count(Call.outcome == "unsuccessful")
+        busy = await _count(Call.outcome == "busy")
+        follow_up = await _count(Call.outcome == "follow_up")
+
+        total_sec = await self._s.scalar(
+            select(func.coalesce(func.sum(Call.duration_sec), 0)).where(*base)
+        ) or 0
+
+        return {
+            "date": str(start.date()),
+            "inbound": inbound,
+            "outbound": outbound,
+            "missed": missed,
+            "successful": successful,
+            "unsuccessful": unsuccessful,
+            "busy": busy,
+            "follow_up": follow_up,
+            "total_calls": inbound + outbound,
+            "total_minutes": round(total_sec / 60, 1),
+        }
+
+    async def daily_performance(self, tenant_id: str | None, days: int = 14) -> dict:
+        """جدول «عملکرد روز» (مطابق اکسل کارفرما) — هر ردیف یک روز در N روز اخیر.
+        ستون‌ها: تاریخ، موفق، مشترک، ناموفق، بی‌پاسخ، پیگیری، جمع تماس، دقیقه."""
+        start = _start_of_today() - timedelta(days=days - 1)
+        day_col = func.date(Call.started_at).label("day")
+        rows = await self._s.execute(
+            select(
+                day_col,
+                func.count(Call.id).label("total"),
+                func.coalesce(
+                    func.sum(case((Call.outcome == "successful", 1), else_=0)), 0
+                ).label("successful"),
+                func.coalesce(
+                    func.sum(case((Call.outcome == "busy", 1), else_=0)), 0
+                ).label("busy"),
+                func.coalesce(
+                    func.sum(case((Call.outcome == "unsuccessful", 1), else_=0)), 0
+                ).label("unsuccessful"),
+                func.coalesce(
+                    func.sum(case((Call.status == "missed", 1), else_=0)), 0
+                ).label("missed"),
+                func.coalesce(
+                    func.sum(case((Call.outcome == "follow_up", 1), else_=0)), 0
+                ).label("follow_up"),
+                func.coalesce(func.sum(Call.duration_sec), 0).label("sec"),
+            )
+            .where(Call.started_at >= start)
+            .group_by(day_col)
+            .order_by(day_col.desc())
+        )
+        items = [
+            {
+                "date": str(r.day),
+                "total": int(r.total),
+                "successful": int(r.successful),
+                "busy": int(r.busy),
+                "unsuccessful": int(r.unsuccessful),
+                "missed": int(r.missed),
+                "follow_up": int(r.follow_up),
+                "minutes": round(int(r.sec) / 60, 1),
+            }
+            for r in rows
+        ]
+        return {"items": items}

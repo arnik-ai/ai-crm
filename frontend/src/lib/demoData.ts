@@ -44,22 +44,28 @@ export const demoTrend = {
 export const demoStudents = {
   items: [
     { id: "1", full_name: "سارا محمدی", mobile: "+989121234567", status: "active",
-      course: "تجربی", grade: "دوازدهم", goal: "پزشکی دانشگاه تهران",
+      city: "تهران", course: "تجربی", grade: "دوازدهم", goal: "پزشکی دانشگاه تهران",
+      lead_source: "اینستاگرام", call_count: 4,
       lead_score: 78, stage: "مشاوره", last_call: "۲ ساعت پیش" },
     { id: "2", full_name: "علی رضایی", mobile: "+989352223344", status: "active",
-      course: "ریاضی", grade: "یازدهم", goal: "مهندسی کامپیوتر شریف",
+      city: "اصفهان", course: "ریاضی", grade: "یازدهم", goal: "مهندسی کامپیوتر شریف",
+      lead_source: "سایت", call_count: 2,
       lead_score: 52, stage: "علاقه‌مند", last_call: "دیروز" },
     { id: "3", full_name: "نگار حسینی", mobile: "+989019998877", status: "active",
-      course: "تجربی", grade: "فارغ‌التحصیل", goal: "دندان‌پزشکی شهید بهشتی",
+      city: "شیراز", course: "تجربی", grade: "فارغ‌التحصیل", goal: "دندان‌پزشکی شهید بهشتی",
+      lead_source: "تلگرام", call_count: 6,
       lead_score: 91, stage: "مذاکره", last_call: "۱ ساعت پیش" },
     { id: "4", full_name: "محمد کریمی", mobile: "+989127776655", status: "inactive",
-      course: "انسانی", grade: "دهم", goal: "حقوق دانشگاه تهران",
+      city: "مشهد", course: "انسانی", grade: "دهم", goal: "حقوق دانشگاه تهران",
+      lead_source: "روبیکا", call_count: 1,
       lead_score: 33, stage: "تماس گرفته‌شده", last_call: "۵ روز پیش" },
     { id: "5", full_name: "زهرا اکبری", mobile: "+989364445566", status: "active",
-      course: "ریاضی", grade: "دوازدهم", goal: "مهندسی برق امیرکبیر",
+      city: "تبریز", course: "ریاضی", grade: "دوازدهم", goal: "مهندسی برق امیرکبیر",
+      lead_source: "پیامک", call_count: 3,
       lead_score: 67, stage: "علاقه‌مند", last_call: "۳ ساعت پیش" },
     { id: "6", full_name: "رضا قاسمی", mobile: "+989101112233", status: "active",
-      course: "انسانی", grade: "یازدهم", goal: "روان‌شناسی دانشگاه تهران",
+      city: "کرج", course: "انسانی", grade: "یازدهم", goal: "روان‌شناسی دانشگاه تهران",
+      lead_source: "بله", call_count: 1,
       lead_score: 45, stage: "سرنخ جدید", last_call: "—" },
   ],
   total: 6,
@@ -111,12 +117,78 @@ export const demoFollowupsToday = {
   ],
 };
 
+// گزارش روزانه‌ی تماس (مطابق اکسل کارفرما)
+export const demoDailyReport = {
+  date: "2026-06-22",
+  inbound: 32,
+  outbound: 48,
+  missed: 7,
+  successful: 14,
+  unsuccessful: 9,
+  busy: 3,
+  follow_up: 11,
+  total_calls: 80,
+  total_minutes: 326.5,
+};
+
+// عملکرد کارشناسان فروش — برای پنل مدیر فروش (کی بیشتر فروخته)
+export const demoTeam = {
+  agents: [
+    { id: "a1", full_name: "مریم رضایی", students: 124, calls: 412, sales_count: 31, sales_amount: 465_000_000 },
+    { id: "a2", full_name: "حسین کریمی", students: 98, calls: 388, sales_count: 24, sales_amount: 360_000_000 },
+    { id: "a3", full_name: "فاطمه احمدی", students: 110, calls: 356, sales_count: 19, sales_amount: 285_000_000 },
+    { id: "a4", full_name: "علی موسوی", students: 76, calls: 290, sales_count: 12, sales_amount: 180_000_000 },
+  ],
+};
+
+// جدول «عملکرد روز» — چند روز اخیر (مطابق عکس ۴ کارفرما)
+export const demoDailyPerformance = {
+  items: [
+    { date: "2026-06-22", total: 80, successful: 14, busy: 3, unsuccessful: 9, missed: 7, follow_up: 11, minutes: 326.5 },
+    { date: "2026-06-21", total: 72, successful: 11, busy: 5, unsuccessful: 8, missed: 6, follow_up: 9, minutes: 298.0 },
+    { date: "2026-06-20", total: 91, successful: 18, busy: 2, unsuccessful: 12, missed: 9, follow_up: 14, minutes: 372.5 },
+    { date: "2026-06-19", total: 64, successful: 9, busy: 4, unsuccessful: 7, missed: 5, follow_up: 8, minutes: 254.0 },
+    { date: "2026-06-18", total: 78, successful: 13, busy: 3, unsuccessful: 10, missed: 8, follow_up: 12, minutes: 311.5 },
+    { date: "2026-06-17", total: 55, successful: 7, busy: 6, unsuccessful: 5, missed: 4, follow_up: 6, minutes: 210.0 },
+    { date: "2026-06-16", total: 83, successful: 15, busy: 2, unsuccessful: 11, missed: 7, follow_up: 13, minutes: 340.0 },
+  ],
+};
+
+// لیست فروش (مطابق عکس ۳ کارفرما)
+export const demoSales = {
+  items: [
+    { id: "s1", student_name: "مریم ابراهیمی", mobile: "+989121110011", date: "1405/03/27", course: "همایش جمع‌بندی", product: "بسته طلایی", amount: 18_500_000, payment: "کارت به کارت" },
+    { id: "s2", student_name: "علی محمدی", mobile: "+989122220022", date: "1405/03/25", course: "مشاوره کنکور", product: "بسته نقره‌ای", amount: 9_800_000, payment: "اقساط" },
+    { id: "s3", student_name: "زهرا کریمی", mobile: "+989123330033", date: "1405/03/24", course: "آزمون آزمایشی", product: "اشتراک ۶ ماهه", amount: 4_500_000, payment: "کارت به کارت" },
+    { id: "s4", student_name: "رضا حسینی", mobile: "+989124440044", date: "1405/03/22", course: "همایش جمع‌بندی", product: "بسته برنزی", amount: 6_200_000, payment: "درگاه آنلاین" },
+    { id: "s5", student_name: "نگار رضایی", mobile: "+989125550055", date: "1405/03/20", course: "کلاس خصوصی ریاضی", product: "۱۰ جلسه", amount: 12_000_000, payment: "اقساط" },
+  ],
+  total_amount: 51_000_000,
+  count: 5,
+};
+
+// پیگیری‌ها (مطابق عکس ۵ کارفرما)
+export const demoFollowups = {
+  items: [
+    { id: "p1", date: "1405/03/27", student_name: "امیرمحمد فتاحی", mobile: "+989121234501", next_call: "1405/03/30", note: "پیشنهاد بسته جهش" },
+    { id: "p2", date: "1405/03/26", student_name: "حدیث محمدی", mobile: "+989121234502", next_call: "1405/03/28", note: "خرید قسطی" },
+    { id: "p3", date: "1405/03/26", student_name: "راشد دوشنبه‌زاده", mobile: "+989121234503", next_call: "1405/03/29", note: "برای برنامه پیگیری باشم" },
+    { id: "p4", date: "1405/03/25", student_name: "امیرمعصوم صالح", mobile: "+989121234504", next_call: "1405/04/01", note: "با مادر صحبت کردم، جواب نداد" },
+    { id: "p5", date: "1405/03/24", student_name: "معصومه نظری", mobile: "+989121234505", next_call: "1405/03/31", note: "لیسانس شیمی، هدف فرهنگیان" },
+  ],
+};
+
 /** نگاشت مسیر API → داده‌ی دموی متناظر. */
 export const demoByPath: Record<string, unknown> = {
   "/dashboard/summary": demoSummary,
   "/dashboard/funnel": demoFunnel,
   "/dashboard/calls-trend": demoTrend,
   "/dashboard/followups/today": demoFollowupsToday,
+  "/dashboard/daily-report": demoDailyReport,
+  "/dashboard/daily-performance": demoDailyPerformance,
+  "/dashboard/team": demoTeam,
   "/students": demoStudents,
   "/calls": demoCalls,
+  "/sales": demoSales,
+  "/followups": demoFollowups,
 };

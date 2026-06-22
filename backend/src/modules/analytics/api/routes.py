@@ -1,4 +1,6 @@
 """Routerهای داشبورد و تحلیل عملکرد."""
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,3 +50,32 @@ async def followups_today(
     user=Depends(require_permission("followups:read")),
 ) -> dict:
     return await DashboardService(session).followups_today(owner_id=user.id)
+
+
+@router.get("/daily-report")
+async def daily_report(
+    date: str | None = None,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("dashboard:read")),
+) -> dict:
+    """گزارش روزانه‌ی تماس. date به فرمت YYYY-MM-DD؛ پیش‌فرض امروز."""
+    target = (
+        datetime.fromisoformat(date).replace(tzinfo=timezone.utc)
+        if date
+        else datetime.now(tz=timezone.utc)
+    )
+    return await DashboardService(session).daily_report(
+        tenant_id=user.tenant_id, target_day=target
+    )
+
+
+@router.get("/daily-performance")
+async def daily_performance(
+    days: int = 14,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("dashboard:read")),
+) -> dict:
+    """جدول عملکرد روز — هر ردیف یک روز در N روز اخیر."""
+    return await DashboardService(session).daily_performance(
+        tenant_id=user.tenant_id, days=days
+    )

@@ -29,7 +29,11 @@ class Call(Base):
     provider: Mapped[str] = mapped_column(String(50), default="workano")
     external_id: Mapped[str] = mapped_column(String(255))
     direction: Mapped[str] = mapped_column(String(20))
+    # وضعیت فنی تماس (خودکار از Provider): ringing/answered/missed/finished/failed
     status: Mapped[str] = mapped_column(String(20))
+    # نتیجه‌ی تماس از نظر فروش (دستیِ کارشناس):
+    # successful / unsuccessful / busy / no_answer / follow_up
+    outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
     caller_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     callee_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     duration_sec: Mapped[int] = mapped_column(Integer, default=0)

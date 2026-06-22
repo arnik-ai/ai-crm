@@ -46,9 +46,16 @@ class Student(Base):
     tenant_id: Mapped[UUID | None] = mapped_column(nullable=True)
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     mobile: Mapped[str] = mapped_column(String(20), index=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # رشته‌ی تحصیلی: تجربی / ریاضی / انسانی / سایر
+    field: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # پایه: tenth / eleventh / twelfth / graduate (دهم/یازدهم/دوازدهم/فارغ‌التحصیل)
+    grade: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    goal: Mapped[str | None] = mapped_column(String(255), nullable=True)
     course_interest_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("courses.id", ondelete="SET NULL"), nullable=True)
-    lead_source: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # منبع تماس: site / instagram / telegram / rubika / bale / sms / other
+    lead_source: Mapped[str | None] = mapped_column(String(50), nullable=True)
     assigned_agent_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     sales_stage_id: Mapped[UUID | None] = mapped_column(
