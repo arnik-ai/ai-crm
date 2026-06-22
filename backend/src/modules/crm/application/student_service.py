@@ -13,8 +13,10 @@ from src.modules.crm.api.schemas import (
 )
 from src.modules.crm.infrastructure.models import (
     Activity,
+    Course,
     Followup,
     Note,
+    SalesStage,
     Student,
 )
 from src.shared.errors.exceptions import ConflictError, NotFoundError
@@ -112,17 +114,32 @@ class StudentService:
         return {"id": str(note.id), "status": "created"}
 
     async def list_followups(self, status, page, size, owner) -> Paginated:
-        stmt = select(Followup)
+        # join با Student تا نام و موبایل دانشجو برای نمایش در UI همراه شود.
+        stmt = (
+            select(
+                Followup.id, Followup.student_id, Followup.due_at,
+                Followup.status, Followup.note,
+                Student.full_name, Student.mobile,
+            )
+            .join(Student, Student.id == Followup.student_id)
+        )
         if status:
             stmt = stmt.where(Followup.status == status)
         total = await self._s.scalar(select(func.count()).select_from(stmt.subquery()))
         rows = (await self._s.execute(
             stmt.order_by(Followup.due_at).offset((page - 1) * size).limit(size)
-        )).scalars().all()
+        )).all()
         return Paginated(
-            items=[{"id": str(f.id), "student_id": str(f.student_id),
-                    "due_at": f.due_at.isoformat(), "status": f.status,
-                    "note": f.note} for f in rows],
+            items=[{
+                "id": str(r.id),
+                "student_id": str(r.student_id),
+                "student_name": r.full_name,
+                "mobile": r.mobile,
+                "due_at": r.due_at.isoformat(),
+                "next_call": r.due_at.isoformat(),
+                "status": r.status,
+                "note": r.note,
+            } for r in rows],
             total=total or 0, page=page, size=size,
         )
 
@@ -132,6 +149,59 @@ class StudentService:
         self._s.add(fu)
         await self._s.commit()
         return {"id": str(fu.id), "status": "created"}
+
+    async def list_sales(self, page, size) -> dict:
+        """لیست فروش = دانشجویانی که به مرحله‌ی ترمینالِ ثبت‌نام رسیده‌اند.
+
+        پروژه جدول مستقل فروش ندارد؛ «فروش» را از مرحله‌ی فروشِ دانشجو استخراج
+        می‌کنیم: مرحله‌ی ترمینال که «Lost/ازدست‌رفته» نباشد یعنی ثبت‌نام موفق.
+        مبلغ از قیمت دوره‌ی موردعلاقه می‌آید (در صورت وجود).
+        """
+        stmt = (
+            select(
+                Student.id, Student.full_name, Student.mobile,
+                Student.created_at,
+                SalesStage.name.label("stage_name"),
+                Course.title.label("course_title"),
+                Course.price.label("course_price"),
+            )
+            .join(SalesStage, SalesStage.id == Student.sales_stage_id)
+            .outerjoin(Course, Course.id == Student.course_interest_id)
+            .where(
+                Student.deleted_at.is_(None),
+                SalesStage.is_terminal.is_(True),
+                SalesStage.name.notin_(["Lost", "ازدست‌رفته"]),
+            )
+            .order_by(Student.created_at.desc())
+        )
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total_count = await self._s.scalar(count_stmt) or 0
+        rows = (await self._s.execute(
+            stmt.offset((page - 1) * size).limit(size)
+        )).all()
+
+        items = []
+        total_amount = 0.0
+        for r in rows:
+            amount = float(r.course_price) if r.course_price is not None else 0.0
+            total_amount += amount
+            items.append({
+                "id": str(r.id),
+                "student_name": r.full_name,
+                "mobile": r.mobile,
+                "date": r.created_at.isoformat(),
+                "course": r.course_title,
+                "product": r.stage_name,
+                "amount": amount,
+                "payment": None,  # پروژه هنوز نوع پرداخت را ذخیره نمی‌کند
+            })
+        return {
+            "items": items,
+            "total_amount": total_amount,
+            "count": total_count,
+            "page": page,
+            "size": size,
+        }
 
     async def _get_or_404(self, student_id: UUID) -> Student:
         student = await self._s.scalar(

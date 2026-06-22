@@ -121,6 +121,18 @@ async def create_followup(
     return await StudentService(session).create_followup(body, owner_id=user.id)
 
 
+# ---------- Sales ----------
+@router.get("/sales")
+async def list_sales(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("dashboard:read")),
+) -> dict:
+    """لیست فروش (دانشجویان ثبت‌نام‌شده). گزارش مدیریتی — مجوز dashboard:read."""
+    return await StudentService(session).list_sales(page, size)
+
+
 # ---------- Courses ----------
 @router.get("/courses")
 async def list_courses(

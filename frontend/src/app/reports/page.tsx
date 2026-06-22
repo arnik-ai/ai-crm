@@ -1,9 +1,11 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { faNum } from "@/lib/utils";
+import { getSession, isManager } from "@/lib/auth";
 import {
   BarChart3,
   PhoneIncoming,
@@ -14,6 +16,7 @@ import {
   Clock,
   RefreshCw,
   Trophy,
+  Lock,
 } from "lucide-react";
 
 type DailyReport = {
@@ -42,18 +45,55 @@ const card =
   "rounded-2xl border bg-white p-4 shadow-sm flex items-center gap-3";
 
 export default function ReportsPage() {
+  // گارد نقش: این صفحه «پنل مدیر فروش» است و فقط برای مدیر/ادمین باز است.
+  // وضعیت سه‌حالته: null = هنوز در حال بررسی (قبل از mount).
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    setAllowed(isManager(getSession()));
+  }, []);
+
+  const enabled = allowed === true;
+
   const { data: rep } = useQuery<DailyReport>({
     queryKey: ["daily-report"],
     queryFn: async () => (await api.get("/dashboard/daily-report")).data,
+    enabled,
   });
   const { data: team } = useQuery({
     queryKey: ["team"],
     queryFn: async () => (await api.get("/dashboard/team")).data,
+    enabled,
   });
   const { data: perf } = useQuery({
     queryKey: ["daily-performance"],
     queryFn: async () => (await api.get("/dashboard/daily-performance")).data,
+    enabled,
   });
+
+  // کارشناس فروش: پیام عدم دسترسی به‌جای جدول خالی.
+  if (allowed === false) {
+    return (
+      <div className="flex min-h-screen flex-col md:flex-row">
+        <Sidebar />
+        <main className="flex-1 p-4 md:p-8">
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-extrabold text-white">پنل مدیر فروش</h1>
+            <BackButton dark />
+          </div>
+          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+              <Lock size={26} />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800">دسترسی محدود</h2>
+            <p className="max-w-sm text-sm text-slate-500">
+              این بخش مخصوص مدیر فروش است. حساب شما (کارشناس فروش) به گزارش‌های
+              مدیریتی و عملکرد تیم دسترسی ندارد.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // مرتب‌سازی کارشناسان بر اساس مبلغ فروش (کی بیشتر فروخته)
   const agents: Agent[] = [...(team?.agents ?? [])].sort(

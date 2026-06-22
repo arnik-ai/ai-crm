@@ -1,19 +1,31 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Phone, Bot, BarChart3, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, Menu, X } from "lucide-react";
+import { getSession, isManager } from "@/lib/auth";
 
+// managerOnly: فقط مدیر فروش/ادمین می‌بیند (پنل مدیر فروش).
 const items = [
-  { href: "/dashboard", label: "داشبورد", icon: LayoutDashboard },
-  { href: "/students", label: "دانشجویان / سرنخ‌ها", icon: Users },
-  { href: "/calls", label: "تماس‌ها", icon: Phone },
-  { href: "/reports", label: "گزارش‌ها", icon: BarChart3 },
-  { href: "/assistant", label: "دستیار هوشمند", icon: Bot },
+  { href: "/dashboard", label: "داشبورد", icon: LayoutDashboard, managerOnly: true },
+  { href: "/students", label: "دانشجویان / سرنخ‌ها", icon: Users, managerOnly: false },
+  { href: "/calls", label: "تماس‌ها", icon: Phone, managerOnly: false },
+  { href: "/sales", label: "لیست فروش", icon: ShoppingCart, managerOnly: false },
+  { href: "/followups", label: "پیگیری‌ها", icon: ListTodo, managerOnly: false },
+  { href: "/reports", label: "گزارش‌ها (پنل مدیر)", icon: BarChart3, managerOnly: true },
+  { href: "/assistant", label: "دستیار هوشمند", icon: Bot, managerOnly: false },
 ];
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
+  // نقش کاربر را پس از mount می‌خوانیم تا hydration سمت سرور/کلاینت یکسان بماند.
+  const [manager, setManager] = useState(false);
+  useEffect(() => {
+    setManager(isManager(getSession()));
+  }, []);
+
+  const visibleItems = items.filter((it) => !it.managerOnly || manager);
+
   return (
     <>
       <div className="mb-8 flex items-center gap-2 px-2">
@@ -25,7 +37,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
         </span>
       </div>
       <nav className="space-y-1">
-        {items.map(({ href, label, icon: Icon }) => {
+        {visibleItems.map(({ href, label, icon: Icon }) => {
           const active = path.startsWith(href);
           return (
             <Link
