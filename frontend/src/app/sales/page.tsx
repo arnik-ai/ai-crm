@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { Pagination } from "@/components/Pagination";
 import { ExportButton } from "@/components/ExportButton";
+import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum, faDateTime } from "@/lib/utils";
 import { Search, ShoppingCart, Receipt, Wallet, CreditCard } from "lucide-react";
@@ -121,8 +122,9 @@ export default function SalesPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="لیست-فروش" />
+            <ExportAllButton endpoint="/sales/export" filename="همه-فروش" />
             <BackButton dark />
           </div>
         </div>

@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { BackButton } from "@/components/BackButton";
 import { ExportButton } from "@/components/ExportButton";
+import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faDuration, faDateTime } from "@/lib/utils";
 import {
@@ -207,8 +208,9 @@ export default function CallsPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="تماس‌ها" />
+            <ExportAllButton endpoint="/calls/export" filename="همه-تماس‌ها" />
             <BackButton dark />
           </div>
         </div>

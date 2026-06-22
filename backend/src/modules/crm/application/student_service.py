@@ -203,6 +203,56 @@ class StudentService:
             "size": size,
         }
 
+    # ---------- Export (خروجی اکسل کامل) ----------
+    def export_students_query(self):
+        """کوئری همه‌ی دانشجویان (بدون صفحه‌بندی) برای خروجی استریم‌شده."""
+        return (
+            select(
+                Student.full_name, Student.mobile, Student.city,
+                Student.field, Student.grade, Student.goal,
+                Student.lead_source, Student.status,
+                SalesStage.name.label("stage"),
+            )
+            .outerjoin(SalesStage, SalesStage.id == Student.sales_stage_id)
+            .where(Student.deleted_at.is_(None))
+            .order_by(Student.created_at.desc())
+        )
+
+    def export_followups_query(self):
+        """کوئری همه‌ی پیگیری‌ها (بدون صفحه‌بندی) برای خروجی استریم‌شده."""
+        return (
+            select(
+                Student.full_name.label("student_name"),
+                Student.mobile,
+                Followup.due_at,
+                Followup.status,
+                Followup.note,
+            )
+            .join(Student, Student.id == Followup.student_id)
+            .order_by(Followup.due_at.desc())
+        )
+
+    def export_sales_query(self):
+        """کوئری همه‌ی فروش‌ها (دانشجویان ثبت‌نام‌شده) برای خروجی استریم‌شده."""
+        return (
+            select(
+                Student.full_name.label("student_name"),
+                Student.mobile,
+                Student.created_at,
+                Course.title.label("course"),
+                SalesStage.name.label("product"),
+                Course.price.label("amount"),
+            )
+            .join(SalesStage, SalesStage.id == Student.sales_stage_id)
+            .outerjoin(Course, Course.id == Student.course_interest_id)
+            .where(
+                Student.deleted_at.is_(None),
+                SalesStage.is_terminal.is_(True),
+                SalesStage.name.notin_(["Lost", "ازدست‌رفته"]),
+            )
+            .order_by(Student.created_at.desc())
+        )
+
     async def _get_or_404(self, student_id: UUID) -> Student:
         student = await self._s.scalar(
             select(Student).where(Student.id == student_id,

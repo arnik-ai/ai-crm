@@ -22,6 +22,7 @@ from src.modules.crm.application.catalog_service import CatalogService
 from src.modules.crm.application.student_service import StudentService
 from src.modules.identity.api.dependencies import current_user, require_permission
 from src.shared.db.base import get_session
+from src.shared.export.csv_stream import stream_csv_response
 
 router = APIRouter()
 
@@ -39,6 +40,24 @@ async def list_students(
     user=Depends(require_permission("students:read")),
 ) -> Paginated:
     return await StudentService(session).list(page, size, stage, agent, status, q)
+
+
+@router.get("/students/export")
+async def export_students(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+):
+    """خروجی اکسل کاملِ همه‌ی دانشجویان (استریم‌شده برای حجم بالا)."""
+    svc = StudentService(session)
+    return await stream_csv_response(
+        session,
+        svc.export_students_query(),
+        headers=["نام و نام خانوادگی", "موبایل", "شهر", "رشته", "پایه",
+                 "هدف", "منبع تماس", "وضعیت", "مرحله فروش"],
+        row_mapper=lambda r: [r.full_name, r.mobile, r.city, r.field, r.grade,
+                              r.goal, r.lead_source, r.status, r.stage],
+        filename="دانشجویان",
+    )
 
 
 @router.post("/students", response_model=StudentOut, status_code=201)
@@ -112,6 +131,22 @@ async def list_followups(
     return await StudentService(session).list_followups(status, page, size, owner=user.id)
 
 
+@router.get("/followups/export")
+async def export_followups(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("followups:read")),
+):
+    """خروجی اکسل کاملِ پیگیری‌ها (استریم‌شده)."""
+    svc = StudentService(session)
+    return await stream_csv_response(
+        session,
+        svc.export_followups_query(),
+        headers=["نام دانشجو", "موبایل", "تاریخ تماس بعدی", "وضعیت", "توضیحات"],
+        row_mapper=lambda r: [r.student_name, r.mobile, r.due_at, r.status, r.note],
+        filename="پیگیری‌ها",
+    )
+
+
 @router.post("/followups", status_code=201)
 async def create_followup(
     body: FollowupCreate,
@@ -131,6 +166,23 @@ async def list_sales(
 ) -> dict:
     """لیست فروش (دانشجویان ثبت‌نام‌شده). گزارش مدیریتی — مجوز dashboard:read."""
     return await StudentService(session).list_sales(page, size)
+
+
+@router.get("/sales/export")
+async def export_sales(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("dashboard:read")),
+):
+    """خروجی اکسل کاملِ فروش (استریم‌شده)."""
+    svc = StudentService(session)
+    return await stream_csv_response(
+        session,
+        svc.export_sales_query(),
+        headers=["نام مشتری", "موبایل", "تاریخ", "دوره", "محصول", "مبلغ (تومان)"],
+        row_mapper=lambda r: [r.student_name, r.mobile, r.created_at, r.course,
+                              r.product, float(r.amount) if r.amount is not None else 0],
+        filename="لیست-فروش",
+    )
 
 
 # ---------- Courses ----------

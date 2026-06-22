@@ -63,6 +63,25 @@ class CallQueryService:
         ]
         return {"items": items, "total": total or 0, "page": page, "size": size}
 
+    def export_calls_query(self):
+        """کوئری همه‌ی تماس‌ها (بدون صفحه‌بندی) برای خروجی استریم‌شده.
+
+        با join به Student نام مخاطب هم می‌آید (امتیاز برای حفظ سادگی/سرعت
+        استریم در این خروجی نمی‌آید — برای آن از خروجی صفحه‌ای استفاده شود)."""
+        return (
+            select(
+                Student.full_name.label("student_name"),
+                Call.caller_number,
+                Call.direction,
+                Call.status,
+                Call.outcome,
+                Call.duration_sec,
+                Call.started_at,
+            )
+            .outerjoin(Student, Student.id == Call.student_id)
+            .order_by(Call.started_at.desc())
+        )
+
     async def detail(self, call_id: UUID) -> dict:
         call = await self._s.get(Call, call_id)
         if call is None:

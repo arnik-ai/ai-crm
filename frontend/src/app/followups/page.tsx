@@ -7,6 +7,7 @@ import { BackButton } from "@/components/BackButton";
 import { CallButton } from "@/components/CallButton";
 import { Pagination } from "@/components/Pagination";
 import { ExportButton } from "@/components/ExportButton";
+import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum, faDateTime } from "@/lib/utils";
 import { Search, CalendarClock, CalendarCheck, ListTodo } from "lucide-react";
@@ -122,8 +123,9 @@ export default function FollowupsPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="پیگیری‌ها" />
+            <ExportAllButton endpoint="/followups/export" filename="همه-پیگیری‌ها" />
             <BackButton dark />
           </div>
         </div>

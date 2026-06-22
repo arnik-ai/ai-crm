@@ -7,8 +7,48 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.modules.identity.api.dependencies import require_permission
 from src.modules.telephony.application.call_query_service import CallQueryService
 from src.shared.db.base import get_session
+from src.shared.export.csv_stream import stream_csv_response
 
 router = APIRouter()
+
+
+def _call_direction_label(direction: str, status: str | None) -> str:
+    if status == "missed":
+        return "بی‌پاسخ"
+    return "ورودی" if direction == "inbound" else "خروجی"
+
+
+def _call_status_label(status: str | None, outcome: str | None) -> str:
+    if status == "missed":
+        return "بی‌پاسخ"
+    labels = {
+        "successful": "موفق", "unsuccessful": "ناموفق", "busy": "مشغول/مشترک",
+        "no_answer": "پاسخ نداد", "follow_up": "پیگیری",
+    }
+    return labels.get(outcome or "", "اقدام نشده")
+
+
+@router.get("/export")
+async def export_calls(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("calls:read")),
+):
+    """خروجی اکسل کاملِ همه‌ی تماس‌ها (استریم‌شده برای حجم بالا)."""
+    svc = CallQueryService(session)
+    return await stream_csv_response(
+        session,
+        svc.export_calls_query(),
+        headers=["نام", "شماره", "جهت", "وضعیت تماس", "مدت (ثانیه)", "تاریخ/زمان"],
+        row_mapper=lambda r: [
+            r.student_name or "ناشناس",
+            r.caller_number,
+            _call_direction_label(r.direction, r.status),
+            _call_status_label(r.status, r.outcome),
+            r.duration_sec,
+            r.started_at,
+        ],
+        filename="تماس‌ها",
+    )
 
 
 @router.get("")

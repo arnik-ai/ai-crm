@@ -7,6 +7,7 @@ import { CallButton } from "@/components/CallButton";
 import { ScoreLegend } from "@/components/ScoreLegend";
 import { BackButton } from "@/components/BackButton";
 import { ExportButton } from "@/components/ExportButton";
+import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { Search, Users, GraduationCap, Phone } from "lucide-react";
 
@@ -155,8 +156,9 @@ export default function StudentsPage() {
               <p className="mt-0.5 text-sm text-slate-300">{items.length} مورد · مرتب‌شده بر اساس امتیاز</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="دانشجویان" />
+            <ExportAllButton endpoint="/students/export" filename="همه-دانشجویان" />
             <BackButton dark />
           </div>
         </div>
