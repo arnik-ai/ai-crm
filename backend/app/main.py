@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from src.shared.config.settings import get_settings
@@ -39,6 +40,37 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# فشرده‌سازی پاسخ‌های بزرگ (JSON/CSV) برای سرعت بیشتر و مصرف پهنای‌باند کمتر.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+# محدودیت نرخ عمومی بر اساس IP و مسیر (جلوگیری از سوءاستفاده/بار ناگهانی).
+# معافیت‌ها: health check و webhookها (که احراز هویت مستقل دارند و ممکن است
+# انفجار رویداد داشته باشند). در نبودِ Redis، بی‌سروصدا اجازه‌ی عبور می‌دهد.
+_RL_EXEMPT_PREFIXES = ("/healthz", "/readyz", "/api/v1/webhooks")
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    path = request.url.path
+    if request.method != "OPTIONS" and not path.startswith(_RL_EXEMPT_PREFIXES):
+        from src.shared.security.rate_limit import RateLimitError, enforce_rate_limit
+
+        client_ip = request.client.host if request.client else "unknown"
+        try:
+            await enforce_rate_limit(
+                f"{client_ip}:{path}", settings.rate_limit_default
+            )
+        except RateLimitError:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "تعداد درخواست‌ها از حد مجاز گذشت",
+                         "code": "RATE_LIMITED"},
+            )
+        except Exception:
+            pass  # Redis در دسترس نیست → اجازه‌ی عبور (degrade graceful)
+    return await call_next(request)
 
 
 @app.exception_handler(AppError)
