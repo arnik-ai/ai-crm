@@ -217,6 +217,15 @@ export const demoMonthlyPerformance = {
   ],
 };
 
+// کاربران سیستم (اعضای تیم) — برای پنل مدیریت کاربران
+export const demoUsers = [
+  { id: "u1", full_name: "مدیر سیستم", mobile: "+989120000000", email: "admin@crm.local", is_active: true, roles: ["admin"] },
+  { id: "u2", full_name: "مریم رضایی", mobile: "+989121111111", email: "989121111111@otp.local", is_active: true, roles: ["sales_manager"] },
+  { id: "u3", full_name: "حسین کریمی", mobile: "+989122222222", email: "989122222222@otp.local", is_active: true, roles: ["sales_agent"] },
+  { id: "u4", full_name: "فاطمه احمدی", mobile: "+989123333333", email: "989123333333@otp.local", is_active: true, roles: ["sales_agent"] },
+  { id: "u5", full_name: "علی موسوی", mobile: "+989124444444", email: "989124444444@otp.local", is_active: false, roles: ["sales_agent"] },
+];
+
 /** نگاشت مسیر API → داده‌ی دموی متناظر. */
 export const demoByPath: Record<string, unknown> = {
   "/dashboard/summary": demoSummary,
@@ -231,4 +240,5 @@ export const demoByPath: Record<string, unknown> = {
   "/calls": demoCalls,
   "/sales": demoSales,
   "/followups": demoFollowups,
+  "/users": demoUsers,
 };

@@ -22,6 +22,7 @@ PERMISSIONS = [
     "dashboard:read",
     "ai:read", "ai:write",
     "assistant:read",
+    "users:read", "users:write",
 ]
 
 # نگاشت نقش → مجوزها
@@ -29,7 +30,8 @@ ROLE_PERMS = {
     "admin": PERMISSIONS,
     "sales_manager": ["students:read", "students:write", "calls:read",
                       "followups:read", "followups:write", "dashboard:read",
-                      "ai:read", "assistant:read", "courses:write"],
+                      "ai:read", "assistant:read", "courses:write",
+                      "users:read", "users:write"],
     "sales_agent": ["students:read", "students:write", "calls:read",
                     "followups:read", "followups:write", "ai:read",
                     "assistant:read"],

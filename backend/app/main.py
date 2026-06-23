@@ -11,6 +11,7 @@ from src.shared.errors.exceptions import AppError
 
 # Routerهای ماژول‌ها
 from src.modules.identity.api.routes import router as auth_router
+from src.modules.identity.api.users_routes import router as users_router
 from src.modules.crm.api.routes import router as crm_router
 from src.modules.telephony.api.routes import router as telephony_router
 from src.modules.telephony.api.webhook import router as webhook_router
@@ -121,6 +122,7 @@ async def readyz() -> JSONResponse:
 
 API = "/api/v1"
 app.include_router(auth_router, prefix=f"{API}/auth", tags=["auth"])
+app.include_router(users_router, prefix=f"{API}/users", tags=["users"])
 app.include_router(crm_router, prefix=f"{API}", tags=["crm"])
 app.include_router(telephony_router, prefix=f"{API}/calls", tags=["calls"])
 app.include_router(webhook_router, prefix=f"{API}/webhooks", tags=["webhooks"])
