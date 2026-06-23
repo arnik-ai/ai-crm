@@ -70,6 +70,15 @@ async def followups_today(
     return await DashboardService(session).followups_today(owner_id=user.id)
 
 
+@router.get("/tasks")
+async def tasks_today(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("calls:read")),
+) -> dict:
+    """کارهای روزِ نیرو (در دسترسِ کارشناس هم هست — مجوز calls:read)."""
+    return await DashboardService(session).tasks_today(owner_id=user.id)
+
+
 @router.get("/daily-report")
 async def daily_report(
     date: str | None = None,

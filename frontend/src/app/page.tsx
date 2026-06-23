@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
 export default function Home() {
-  redirect("/dashboard");
+  // صفحه‌ی اصلی = کارهای روزِ نیرو
+  redirect("/tasks");
 }

@@ -228,6 +228,21 @@ export const demoMonthlyPerformance = {
   ],
 };
 
+// کارهای روزِ نیرو — صفحه‌ی اصلی
+export const demoTasks = {
+  followups: [
+    { id: "f1", student_name: "نگار حسینی", mobile: "+989019998877", due_at: "2026-06-23T10:00:00Z", note: "ارسال طرح اقساطی" },
+    { id: "f2", student_name: "سارا محمدی", mobile: "+989121234567", due_at: "2026-06-23T11:30:00Z", note: "پیگیری ثبت‌نام" },
+  ],
+  pending_action_calls: [
+    { id: "c1", student_name: "علی رضایی", mobile: "+989352223344", started_at: "2026-06-22T09:15:00Z" },
+    { id: "c2", student_name: "زهرا اکبری", mobile: "+989364445566", started_at: "2026-06-21T13:20:00Z" },
+  ],
+  missed_calls: [
+    { id: "m1", student_name: "محمد کریمی", mobile: "+989127776655", started_at: "2026-06-23T08:40:00Z" },
+  ],
+};
+
 // کاربران سیستم (اعضای تیم) — برای پنل مدیریت کاربران
 export const demoUsers = [
   { id: "u1", full_name: "مدیر سیستم", mobile: "+989120000000", email: "admin@crm.local", is_active: true, roles: ["admin"] },
@@ -243,6 +258,7 @@ export const demoByPath: Record<string, unknown> = {
   "/dashboard/funnel": demoFunnel,
   "/dashboard/calls-trend": demoTrend,
   "/dashboard/followups/today": demoFollowupsToday,
+  "/dashboard/tasks": demoTasks,
   "/dashboard/daily-report": demoDailyReport,
   "/dashboard/daily-performance": demoDailyPerformance,
   "/dashboard/monthly-performance": demoMonthlyPerformance,

@@ -2,11 +2,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, UserCog, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, UserCog, ClipboardList, Menu, X } from "lucide-react";
 import { getSession, isManager, isAuthenticated } from "@/lib/auth";
 
 // managerOnly: فقط مدیر فروش/ادمین می‌بیند (پنل مدیر فروش).
 const items = [
+  { href: "/tasks", label: "کارهای روز", icon: ClipboardList, managerOnly: false },
   { href: "/dashboard", label: "داشبورد", icon: LayoutDashboard, managerOnly: true },
   { href: "/students", label: "دانشجویان / سرنخ‌ها", icon: Users, managerOnly: false },
   { href: "/calls", label: "تماس‌ها", icon: Phone, managerOnly: false },

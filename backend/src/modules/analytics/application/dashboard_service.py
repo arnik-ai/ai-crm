@@ -208,6 +208,66 @@ class DashboardService:
         ]
         return {"items": items}
 
+    async def tasks_today(self, owner_id: str) -> dict:
+        """کارهای روزِ نیرو: پیگیری‌های امروز + تماس‌های بدون اقدام + بی‌پاسخ‌ها.
+
+        - پیگیری‌های امروز: due_at امروز و وضعیت pending
+        - تماس بدون اقدام: تماسِ پاسخ‌داده‌شده‌ی ۷ روز اخیر که outcome ندارد
+          (شاملِ تماس‌های روزهای گذشته که هنوز رویشان اقدام نشده)
+        - بی‌پاسخ: تماس‌های missed دو روز اخیر
+        """
+        today = _start_of_today()
+        end = today + timedelta(days=1)
+        week_ago = today - timedelta(days=7)
+        two_days_ago = today - timedelta(days=2)
+
+        # ۱) پیگیری‌های امروز
+        fu_rows = await self._s.execute(
+            select(Followup, Student.full_name, Student.mobile)
+            .join(Student, Student.id == Followup.student_id)
+            .where(Followup.due_at >= today, Followup.due_at < end,
+                   Followup.status == "pending")
+            .order_by(Followup.due_at)
+        )
+        followups = [
+            {"id": str(fu.id), "student_name": name or mobile, "mobile": mobile,
+             "due_at": fu.due_at.isoformat(), "note": fu.note}
+            for fu, name, mobile in fu_rows
+        ]
+
+        # ۲) تماس‌های بدون اقدام (۷ روز اخیر، پاسخ‌داده‌شده، بدون outcome)
+        pa_rows = await self._s.execute(
+            select(Call.id, Call.caller_number, Call.started_at, Student.full_name)
+            .outerjoin(Student, Student.id == Call.student_id)
+            .where(Call.started_at >= week_ago, Call.outcome.is_(None),
+                   Call.status != "missed")
+            .order_by(Call.started_at.desc()).limit(100)
+        )
+        pending_action = [
+            {"id": str(cid), "student_name": name, "mobile": num,
+             "started_at": (sa.isoformat() if sa else None)}
+            for cid, num, sa, name in pa_rows
+        ]
+
+        # ۳) بی‌پاسخ‌های دو روز اخیر
+        miss_rows = await self._s.execute(
+            select(Call.id, Call.caller_number, Call.started_at, Student.full_name)
+            .outerjoin(Student, Student.id == Call.student_id)
+            .where(Call.started_at >= two_days_ago, Call.status == "missed")
+            .order_by(Call.started_at.desc()).limit(100)
+        )
+        missed = [
+            {"id": str(cid), "student_name": name, "mobile": num,
+             "started_at": (sa.isoformat() if sa else None)}
+            for cid, num, sa, name in miss_rows
+        ]
+
+        return {
+            "followups": followups,
+            "pending_action_calls": pending_action,
+            "missed_calls": missed,
+        }
+
     async def calls_trend(self, tenant_id: str | None, days: int = 7) -> dict:
         """روند تعداد تماس‌ها در N روز اخیر، به تفکیک ورودی/خروجی (برای نمودار خطی)."""
         start = _start_of_today() - timedelta(days=days - 1)
