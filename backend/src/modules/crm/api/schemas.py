@@ -111,3 +111,62 @@ class StageCreate(BaseModel):
     order_index: int
     is_terminal: bool = False
     color: str = "#888888"
+
+
+# ---------- فروش (فیش) ----------
+# لیست ثابت محصولات (مطابق فهرست کارفرما)
+PRODUCTS = [
+    "بمب دهم", "بمب یازدهم", "بمب دوازدهم", "جهش", "شبیه ساز", "روش مطالعه",
+    "مصاحبه فرهنگیان", "منابع فرهنگیان", "آموزش انتخاب رشته", "انتخاب رشته",
+    "پامپ", "تک جلسه", "برنامه",
+]
+PAYMENT_METHODS = ["کارت به کارت", "اقساط", "درگاه آنلاین", "نقدی"]
+PROGRAM_PRODUCT = "برنامه"
+
+
+class SaleCreate(BaseModel):
+    student_name: str = Field(min_length=2)
+    mobile: str = Field(pattern=r"^\+?\d{10,15}$")
+    product: str
+    program_months: int | None = Field(default=None, ge=1, le=12)
+    amount: float = Field(ge=0)
+    payment_method: str | None = None
+    payment_ref: str | None = None
+    note: str | None = None
+    student_id: UUID | None = None
+
+    @field_validator("mobile")
+    @classmethod
+    def normalize_mobile(cls, v: str) -> str:
+        return _normalize_mobile(v)
+
+    @field_validator("product")
+    @classmethod
+    def check_product(cls, v: str) -> str:
+        if v not in PRODUCTS:
+            raise ValueError("محصول نامعتبر است")
+        return v
+
+    @field_validator("program_months")
+    @classmethod
+    def check_months(cls, v, info):
+        # برای «برنامه» مدت لازم است؛ برای بقیه باید خالی باشد
+        product = info.data.get("product")
+        if product == PROGRAM_PRODUCT and not v:
+            raise ValueError("برای برنامه، مدت (ماه) لازم است")
+        if product != PROGRAM_PRODUCT:
+            return None
+        return v
+
+
+class SaleOut(BaseModel):
+    id: str
+    student_name: str | None = None
+    mobile: str | None = None
+    product: str
+    program_months: int | None = None
+    amount: float
+    payment: str | None = None
+    payment_ref: str | None = None
+    date: str
+    renewal_due: str | None = None

@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
@@ -8,11 +8,15 @@ import { Pagination } from "@/components/Pagination";
 import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
-import { faNum, faDateTime } from "@/lib/utils";
-import { Search, ShoppingCart, Receipt, Wallet, CreditCard } from "lucide-react";
+import { isDemoMode } from "@/lib/auth";
+import { faNum, faDateTime, faDigits } from "@/lib/utils";
+import { Search, ShoppingCart, Receipt, Wallet, CreditCard, Plus, X, Loader2 } from "lucide-react";
+
+const DEMO = isDemoMode();
+const PROGRAM = "برنامه";
 
 /** نمایش تاریخ: ISO (بک واقعی) → فارسی خوانا؛ شمسیِ رشته‌ای (دمو) → همان. */
-function showDate(s?: string): string {
+function showDate(s?: string | null): string {
   if (!s) return "—";
   return /^\d{4}-\d{2}-\d{2}T/.test(s) ? faDateTime(s) : s;
 }
@@ -22,10 +26,12 @@ type Sale = {
   student_name: string | null;
   mobile: string | null;
   date: string;
-  course: string | null;
   product: string | null;
+  program_months: number | null;
   amount: number;
   payment: string | null;
+  payment_ref: string | null;
+  renewal_due: string | null;
 };
 
 type SalesResponse = {
@@ -36,9 +42,14 @@ type SalesResponse = {
   size?: number;
 };
 
+type SalesMeta = {
+  products: string[];
+  payment_methods: string[];
+  program_months: number[];
+};
+
 const PAGE_SIZE = 20;
 
-/** نشان رنگی نوع پرداخت. */
 function PaymentBadge({ payment }: { payment?: string | null }) {
   if (!payment) return <span className="text-slate-300">—</span>;
   const tone: Record<string, string> = {
@@ -56,34 +67,36 @@ function PaymentBadge({ payment }: { payment?: string | null }) {
 
 /** فرمت مبلغ تومان (نمایش به میلیون برای خوانایی). */
 function amountMillions(n: number): string {
-  const m = Math.round((n / 1_000_000) * 10) / 10; // یک رقم اعشار
+  const m = Math.round((n / 1_000_000) * 10) / 10;
   return `${faNum(m)} م تومان`;
 }
 
 const FILTERS = ["همه", "کارت به کارت", "اقساط", "درگاه آنلاین"];
 
-// ستون‌های خروجی اکسل فروش (مبلغ به‌صورت عدد خام برای محاسبه در اکسل)
 const EXCEL_COLUMNS: ExcelColumn<Sale>[] = [
   { key: "student_name", label: "نام مشتری" },
   { key: "mobile", label: "موبایل" },
   { key: "date", label: "تاریخ", format: (s) => showDate(s.date) },
-  { key: "course", label: "دوره" },
   { key: "product", label: "محصول" },
+  { key: "program_months", label: "مدت (ماه)", format: (s) => s.program_months ?? "" },
   { key: "amount", label: "مبلغ (تومان)", format: (s) => s.amount ?? 0 },
   { key: "payment", label: "نوع پرداخت" },
+  { key: "payment_ref", label: "جزئیات واریز" },
 ];
 
 export default function SalesPage() {
+  const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const { data } = useQuery<SalesResponse>({
     queryKey: ["sales", page],
     queryFn: async () =>
       (await api.get(`/sales?page=${page}&size=${PAGE_SIZE}`)).data,
-    placeholderData: (prev) => prev, // جلوگیری از پرش هنگام تعویض صفحه
+    placeholderData: (prev) => prev,
   });
 
   const [q, setQ] = useState("");
   const [payment, setPayment] = useState("همه");
+  const [showAdd, setShowAdd] = useState(false);
 
   const items: Sale[] = useMemo(() => {
     let list: Sale[] = data?.items ?? [];
@@ -94,13 +107,12 @@ export default function SalesPage() {
         (s) =>
           (s.student_name ?? "").includes(k) ||
           (s.mobile ?? "").includes(k) ||
-          (s.course ?? "").includes(k)
+          (s.product ?? "").includes(k)
       );
     }
     return list;
   }, [data, q, payment]);
 
-  // مجموع مبلغ نمایش‌داده‌شده (پس از فیلتر)
   const shownAmount = items.reduce((sum, s) => sum + (s.amount ?? 0), 0);
   const totalAmount = data?.total_amount ?? 0;
   const count = data?.count ?? items.length;
@@ -123,6 +135,12 @@ export default function SalesPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowAdd(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"
+            >
+              <Plus size={16} /> ثبت فیش
+            </button>
             <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="لیست-فروش" />
             <ExportAllButton endpoint="/sales/export" filename="همه-فروش" />
             <BackButton dark />
@@ -161,7 +179,7 @@ export default function SalesPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="جستجوی نام، موبایل یا دوره…"
+              placeholder="جستجوی نام، موبایل یا محصول…"
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-9 pl-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
             />
           </div>
@@ -184,15 +202,16 @@ export default function SalesPage() {
 
         {/* جدول فروش */}
         <div className="overflow-x-auto rounded-2xl border border-emerald-100 bg-white shadow-sm">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <thead className="bg-gradient-to-l from-emerald-50 to-green-50 text-slate-600">
               <tr>
                 <th className="p-3.5 text-right font-medium">دانشجو</th>
                 <th className="p-3.5 text-right font-medium">تاریخ</th>
-                <th className="p-3.5 text-right font-medium">دوره</th>
                 <th className="p-3.5 text-right font-medium">محصول</th>
+                <th className="p-3.5 text-center font-medium">مدت</th>
                 <th className="p-3.5 text-center font-medium">مبلغ</th>
                 <th className="p-3.5 text-right font-medium">نوع پرداخت</th>
+                <th className="p-3.5 text-right font-medium">جزئیات واریز</th>
               </tr>
             </thead>
             <tbody>
@@ -208,18 +227,26 @@ export default function SalesPage() {
                     <div className="text-xs text-slate-400" dir="ltr">{s.mobile || "—"}</div>
                   </td>
                   <td className="p-3.5 text-slate-600" dir="ltr">{showDate(s.date)}</td>
-                  <td className="p-3.5 text-slate-600">{s.course ?? "—"}</td>
-                  <td className="p-3.5 text-slate-500">{s.product ?? "—"}</td>
+                  <td className="p-3.5">
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                      s.product === PROGRAM ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"
+                    }`}>
+                      {s.product ?? "—"}
+                    </span>
+                  </td>
+                  <td className="p-3.5 text-center text-slate-600">
+                    {s.program_months ? `${faNum(s.program_months)} ماه` : "—"}
+                  </td>
                   <td className="p-3.5 text-center font-extrabold text-emerald-600">
                     {amountMillions(s.amount)}
                   </td>
                   <td className="p-3.5"><PaymentBadge payment={s.payment} /></td>
+                  <td className="p-3.5 text-slate-500" dir="ltr">{s.payment_ref ? faDigits(s.payment_ref) : "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          {/* حالت خالی */}
           {items.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-slate-400">
               <ShoppingCart size={40} className="opacity-40" />
@@ -228,8 +255,6 @@ export default function SalesPage() {
           )}
         </div>
 
-        {/* صفحه‌بندی — فقط در نمای کامل (وقتی جستجو/فیلتر فعال نیست، چون جستجو
-            سمت‌سرور نیست و باید کل صفحه‌ها پیمایش شوند). */}
         {q.trim() === "" && payment === "همه" && (
           <Pagination
             page={data?.page ?? page}
@@ -239,6 +264,154 @@ export default function SalesPage() {
           />
         )}
       </main>
+
+      {showAdd && (
+        <AddSaleModal
+          onClose={() => setShowAdd(false)}
+          onAdded={() => { setShowAdd(false); qc.invalidateQueries({ queryKey: ["sales"] }); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- مودال ثبت فیش ---------- */
+function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const { data: meta } = useQuery<SalesMeta>({
+    queryKey: ["sales-meta"],
+    queryFn: async () => (await api.get("/sales/meta")).data,
+  });
+
+  const [studentName, setStudentName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [product, setProduct] = useState("");
+  const [months, setMonths] = useState<number | "">("");
+  const [amount, setAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentRef, setPaymentRef] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const isProgram = product === PROGRAM;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (isProgram && !months) {
+      setError("برای «برنامه»، مدت (ماه) را انتخاب کنید.");
+      return;
+    }
+    setLoading(true);
+    try {
+      if (DEMO) {
+        alert("در حالت نمایشی، ثبت فیش ذخیره نمی‌شود.");
+        onClose();
+        return;
+      }
+      await api.post("/sales", {
+        student_name: studentName,
+        mobile,
+        product,
+        program_months: isProgram ? months : null,
+        amount: Number(amount) || 0,
+        payment_method: paymentMethod || null,
+        payment_ref: paymentRef || null,
+      });
+      onAdded();
+    } catch {
+      setError("ثبت فیش ناموفق بود. ورودی‌ها را بررسی کنید.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-bold text-slate-800">ثبت فیش فروش</h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <form onSubmit={submit} className="space-y-3">
+          <input
+            placeholder="نام مشتری"
+            value={studentName}
+            onChange={(e) => setStudentName(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            required
+          />
+          <input
+            type="tel"
+            placeholder="موبایل (مثلاً ۰۹۱۲۳۴۵۶۷۸۹)"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            dir="ltr"
+            required
+          />
+          {/* کشوی محصول */}
+          <select
+            value={product}
+            onChange={(e) => { setProduct(e.target.value); setMonths(""); }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            required
+          >
+            <option value="" disabled>انتخاب محصول…</option>
+            {(meta?.products ?? []).map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          {/* کشوی مدت — فقط برای برنامه */}
+          {isProgram && (
+            <select
+              value={months}
+              onChange={(e) => setMonths(Number(e.target.value))}
+              className="w-full rounded-xl border border-indigo-300 bg-indigo-50/40 px-4 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              required
+            >
+              <option value="" disabled>مدت برنامه…</option>
+              {(meta?.program_months ?? []).map((m) => (
+                <option key={m} value={m}>{faNum(m)} ماه</option>
+              ))}
+            </select>
+          )}
+          <input
+            type="number"
+            placeholder="مبلغ (تومان)"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            dir="ltr"
+            min={0}
+            required
+          />
+          <select
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+          >
+            <option value="">نوع پرداخت…</option>
+            {(meta?.payment_methods ?? []).map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          <input
+            placeholder="جزئیات واریز (کد رهگیری/کارت) — اختیاری"
+            value={paymentRef}
+            onChange={(e) => setPaymentRef(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            dir="ltr"
+          />
+          {error && <div className="text-sm text-rose-600">{error}</div>}
+          <button
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {loading && <Loader2 size={16} className="animate-spin" />}
+            ثبت فیش
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

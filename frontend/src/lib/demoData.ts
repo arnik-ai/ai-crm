@@ -154,17 +154,28 @@ export const demoDailyPerformance = {
   ],
 };
 
-// لیست فروش (مطابق عکس ۳ کارفرما)
+// لیست فروش (فیش‌ها) — محصولات مطابق فهرست کارفرما
 export const demoSales = {
   items: [
-    { id: "s1", student_name: "مریم ابراهیمی", mobile: "+989121110011", date: "1405/03/27", course: "همایش جمع‌بندی", product: "بسته طلایی", amount: 18_500_000, payment: "کارت به کارت" },
-    { id: "s2", student_name: "علی محمدی", mobile: "+989122220022", date: "1405/03/25", course: "مشاوره کنکور", product: "بسته نقره‌ای", amount: 9_800_000, payment: "اقساط" },
-    { id: "s3", student_name: "زهرا کریمی", mobile: "+989123330033", date: "1405/03/24", course: "آزمون آزمایشی", product: "اشتراک ۶ ماهه", amount: 4_500_000, payment: "کارت به کارت" },
-    { id: "s4", student_name: "رضا حسینی", mobile: "+989124440044", date: "1405/03/22", course: "همایش جمع‌بندی", product: "بسته برنزی", amount: 6_200_000, payment: "درگاه آنلاین" },
-    { id: "s5", student_name: "نگار رضایی", mobile: "+989125550055", date: "1405/03/20", course: "کلاس خصوصی ریاضی", product: "۱۰ جلسه", amount: 12_000_000, payment: "اقساط" },
+    { id: "s1", student_name: "مریم ابراهیمی", mobile: "+989121110011", date: "2026-06-17T10:00:00Z", product: "برنامه", program_months: 6, amount: 18_500_000, payment: "کارت به کارت", payment_ref: "۶۲۱۹۸۶...۴۵", renewal_due: "2026-12-17T10:00:00Z" },
+    { id: "s2", student_name: "علی محمدی", mobile: "+989122220022", date: "2026-06-15T10:00:00Z", product: "جهش", program_months: null, amount: 9_800_000, payment: "اقساط", payment_ref: null, renewal_due: null },
+    { id: "s3", student_name: "زهرا کریمی", mobile: "+989123330033", date: "2026-06-14T10:00:00Z", product: "بمب دوازدهم", program_months: null, amount: 4_500_000, payment: "کارت به کارت", payment_ref: "۶۰۳۷۹۹...۱۲", renewal_due: null },
+    { id: "s4", student_name: "رضا حسینی", mobile: "+989124440044", date: "2026-06-12T10:00:00Z", product: "برنامه", program_months: 3, amount: 6_200_000, payment: "درگاه آنلاین", payment_ref: "TRK-88231", renewal_due: "2026-09-12T10:00:00Z" },
+    { id: "s5", student_name: "نگار رضایی", mobile: "+989125550055", date: "2026-06-10T10:00:00Z", product: "شبیه ساز", program_months: null, amount: 12_000_000, payment: "اقساط", payment_ref: null, renewal_due: null },
   ],
   total_amount: 51_000_000,
   count: 5,
+};
+
+// متادیتای فرم ثبت فیش (محصولات/پرداخت/مدت برنامه)
+export const demoSalesMeta = {
+  products: [
+    "بمب دهم", "بمب یازدهم", "بمب دوازدهم", "جهش", "شبیه ساز", "روش مطالعه",
+    "مصاحبه فرهنگیان", "منابع فرهنگیان", "آموزش انتخاب رشته", "انتخاب رشته",
+    "پامپ", "تک جلسه", "برنامه",
+  ],
+  payment_methods: ["کارت به کارت", "اقساط", "درگاه آنلاین", "نقدی"],
+  program_months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 };
 
 // پیگیری‌ها (مطابق عکس ۵ کارفرما)
@@ -239,6 +250,7 @@ export const demoByPath: Record<string, unknown> = {
   "/students": demoStudents,
   "/calls": demoCalls,
   "/sales": demoSales,
+  "/sales/meta": demoSalesMeta,
   "/followups": demoFollowups,
   "/users": demoUsers,
 };

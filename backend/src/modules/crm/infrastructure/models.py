@@ -97,3 +97,27 @@ class Activity(Base):
         ForeignKey("students.id", ondelete="CASCADE"), index=True)
     type: Mapped[str] = mapped_column(String(50))
     payload: Mapped[dict | None] = mapped_column(nullable=True)
+
+
+class Sale(Base):
+    """فیشِ فروش — ثبت واقعی فروش با محصول، مدت برنامه و جزئیات واریز."""
+    __tablename__ = "sales"
+    tenant_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    student_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True)
+    agent_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    # نام/موبایل به‌صورت snapshot هم ذخیره می‌شوند (برای فیش مستقل از سرنخ)
+    student_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    mobile: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    # محصول از لیست ثابت؛ برای «برنامه» مدت ماه پر می‌شود
+    product: Mapped[str] = mapped_column(String(100))
+    program_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    amount: Mapped[float] = mapped_column(Numeric(14, 0), default=0)
+    payment_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    payment_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sold_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # موعد تمدید (فقط برای برنامه): sold_at + program_months — برای یادآوری فاز ۲
+    renewal_due_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True)

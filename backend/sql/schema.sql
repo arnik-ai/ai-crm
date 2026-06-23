@@ -139,6 +139,29 @@ CREATE TABLE activities (
 );
 CREATE INDEX ix_activities_student ON activities(student_id, created_at DESC);
 
+CREATE TABLE sales (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       uuid,
+    student_id      uuid REFERENCES students(id) ON DELETE SET NULL,
+    agent_id        uuid REFERENCES users(id) ON DELETE SET NULL,
+    student_name    text,
+    mobile          text,
+    product         text NOT NULL,
+    program_months  int,
+    amount          numeric(14,0) NOT NULL DEFAULT 0,
+    payment_method  text,
+    payment_ref     text,
+    note            text,
+    sold_at         timestamptz NOT NULL DEFAULT now(),
+    renewal_due_at  timestamptz,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_sales_sold    ON sales(sold_at DESC);
+CREATE INDEX ix_sales_agent   ON sales(agent_id);
+CREATE INDEX ix_sales_student ON sales(student_id);
+CREATE INDEX ix_sales_renewal ON sales(renewal_due_at) WHERE renewal_due_at IS NOT NULL;
+
 -- ---------- Telephony ----------
 CREATE TABLE calls (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),

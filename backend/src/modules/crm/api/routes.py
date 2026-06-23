@@ -5,11 +5,14 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.crm.api.schemas import (
+    PAYMENT_METHODS,
+    PRODUCTS,
     CourseCreate,
     CourseUpdate,
     FollowupCreate,
     NoteCreate,
     Paginated,
+    SaleCreate,
     StageChange,
     StageCreate,
     StudentCreate,
@@ -19,6 +22,7 @@ from src.modules.crm.api.schemas import (
     TagCreate,
 )
 from src.modules.crm.application.catalog_service import CatalogService
+from src.modules.crm.application.sales_service import SalesService
 from src.modules.crm.application.student_service import StudentService
 from src.modules.identity.api.dependencies import current_user, require_permission
 from src.shared.db.base import get_session
@@ -156,31 +160,55 @@ async def create_followup(
     return await StudentService(session).create_followup(body, owner_id=user.id)
 
 
-# ---------- Sales ----------
+# ---------- Sales (فیش فروش) ----------
+@router.get("/sales/meta")
+async def sales_meta(
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """لیست محصولات، روش‌های پرداخت و گزینه‌های مدت برنامه (برای فرم ثبت فیش)."""
+    return {
+        "products": PRODUCTS,
+        "payment_methods": PAYMENT_METHODS,
+        "program_months": list(range(1, 13)),
+    }
+
+
 @router.get("/sales")
 async def list_sales(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
-    user=Depends(require_permission("dashboard:read")),
+    user=Depends(require_permission("students:read")),
 ) -> dict:
-    """لیست فروش (دانشجویان ثبت‌نام‌شده). گزارش مدیریتی — مجوز dashboard:read."""
-    return await StudentService(session).list_sales(page, size)
+    """لیست فروش‌های ثبت‌شده (فیش‌ها)."""
+    return await SalesService(session).list_sales(page, size)
+
+
+@router.post("/sales", status_code=201)
+async def create_sale(
+    body: SaleCreate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    """ثبت فیش فروش جدید (محصول + مدت برنامه + جزئیات واریز)."""
+    return await SalesService(session).create_sale(body, agent_id=user.id)
 
 
 @router.get("/sales/export")
 async def export_sales(
     session: AsyncSession = Depends(get_session),
-    user=Depends(require_permission("dashboard:read")),
+    user=Depends(require_permission("students:read")),
 ):
     """خروجی اکسل کاملِ فروش (استریم‌شده)."""
-    svc = StudentService(session)
+    svc = SalesService(session)
     return await stream_csv_response(
         session,
         svc.export_sales_query(),
-        headers=["نام مشتری", "موبایل", "تاریخ", "دوره", "محصول", "مبلغ (تومان)"],
-        row_mapper=lambda r: [r.student_name, r.mobile, r.created_at, r.course,
-                              r.product, float(r.amount) if r.amount is not None else 0],
+        headers=["نام مشتری", "موبایل", "تاریخ", "محصول", "مدت (ماه)",
+                 "مبلغ (تومان)", "نوع پرداخت", "جزئیات واریز"],
+        row_mapper=lambda r: [r.student_name, r.mobile, r.sold_at, r.product,
+                              r.program_months, float(r.amount) if r.amount is not None else 0,
+                              r.payment_method, r.payment_ref],
         filename="لیست-فروش",
     )
 
