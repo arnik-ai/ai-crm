@@ -51,13 +51,40 @@ async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
 
 @app.get("/healthz", tags=["system"])
 async def healthz() -> dict:
+    # liveness ساده: خودِ پروسه زنده است (بدون بررسی منابع بیرونی)
     return {"status": "ok"}
 
 
 @app.get("/readyz", tags=["system"])
-async def readyz() -> dict:
-    # در پیاده‌سازی کامل: بررسی اتصال DB و Redis
-    return {"status": "ready"}
+async def readyz() -> JSONResponse:
+    """readiness واقعی: اتصال دیتابیس و Redis را بررسی می‌کند.
+
+    اگر هرکدام قطع باشند، کد ۵۰۳ برمی‌گرداند تا پلتفرم (پارس‌پک) بفهمد سرویس
+    آماده نیست و در صورت نیاز آن را restart/کنار بگذارد — به‌جای هنگِ خاموش.
+    """
+    from sqlalchemy import text
+
+    from src.shared.db.base import SessionLocal
+    from src.shared.db.redis_client import redis_client
+
+    checks = {"db": False, "redis": False}
+    try:
+        async with SessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        checks["db"] = True
+    except Exception:
+        pass
+    try:
+        await redis_client.ping()
+        checks["redis"] = True
+    except Exception:
+        pass
+
+    ok = all(checks.values())
+    return JSONResponse(
+        status_code=200 if ok else 503,
+        content={"status": "ready" if ok else "degraded", "checks": checks},
+    )
 
 
 API = "/api/v1"
