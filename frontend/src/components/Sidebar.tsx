@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, Menu, X } from "lucide-react";
-import { getSession, isManager } from "@/lib/auth";
+import { getSession, isManager, isAuthenticated } from "@/lib/auth";
 
 // managerOnly: فقط مدیر فروش/ادمین می‌بیند (پنل مدیر فروش).
 const items = [
@@ -65,6 +65,13 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+
+  // نگهبان احراز هویت: همه‌ی صفحات محافظت‌شده Sidebar را رندر می‌کنند؛ پس اینجا
+  // یک‌جا چک می‌کنیم. در حالت دمو، isAuthenticated همیشه true است (بدون ریدایرکت).
+  useEffect(() => {
+    if (!isAuthenticated()) router.replace("/login");
+  }, [router]);
 
   return (
     <>

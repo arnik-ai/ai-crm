@@ -6,6 +6,9 @@ from src.modules.identity.api.dependencies import current_user
 from src.modules.identity.api.schemas import (
     CurrentUser,
     LoginRequest,
+    OtpRequest,
+    OtpRequestResponse,
+    OtpVerify,
     RefreshRequest,
     TokenResponse,
 )
@@ -26,6 +29,30 @@ async def login(
 ) -> TokenResponse:
     service = AuthService(session, redis)
     return TokenResponse(**await service.login(body.email, body.password))
+
+
+@router.post("/otp/request", response_model=OtpRequestResponse,
+             dependencies=[Depends(login_rate_limiter())])
+async def request_otp(
+    body: OtpRequest,
+    session: AsyncSession = Depends(get_session),
+    redis=Depends(get_redis),
+) -> OtpRequestResponse:
+    """درخواست کد ورود پیامکی برای یک شماره‌ی موبایل."""
+    service = AuthService(session, redis)
+    return OtpRequestResponse(**await service.request_otp(body.mobile))
+
+
+@router.post("/otp/verify", response_model=TokenResponse,
+             dependencies=[Depends(login_rate_limiter())])
+async def verify_otp(
+    body: OtpVerify,
+    session: AsyncSession = Depends(get_session),
+    redis=Depends(get_redis),
+) -> TokenResponse:
+    """بررسی کد پیامکی و ورود."""
+    service = AuthService(session, redis)
+    return TokenResponse(**await service.login_with_otp(body.mobile, body.code))
 
 
 @router.post("/refresh", response_model=TokenResponse)

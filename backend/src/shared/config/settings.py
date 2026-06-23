@@ -60,6 +60,18 @@ class Settings(BaseSettings):
     rate_limit_default: str = "100/minute"
     rate_limit_login: str = "5/minute"
 
+    # SMS / OTP (ورود با پیامک)
+    # sms_provider: console (تست — کد در پاسخ/لاگ) یا melipayamak (واقعی)
+    sms_provider: str = "console"
+    melipayamak_username: str = ""
+    melipayamak_password: str = ""
+    melipayamak_from: str = ""          # شماره‌ی خط ارسال (در صورت استفاده از ارسال ساده)
+    melipayamak_otp_pattern: str = ""   # شناسه‌ی الگوی OTP (در صورت استفاده از وب‌سرویس الگو)
+    otp_length: int = 5
+    otp_ttl: int = 120                  # عمر کد (ثانیه)
+    otp_request_cooldown: int = 60      # حداقل فاصله بین دو درخواست کد (ثانیه)
+    otp_max_attempts: int = 5           # حداکثر تلاش اشتباه برای هر کد
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -15,12 +15,15 @@ CREATE TABLE users (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       uuid REFERENCES tenants(id) ON DELETE CASCADE,
     email           text NOT NULL UNIQUE,
+    mobile          text,
     hashed_password text NOT NULL,
     full_name       text NOT NULL,
     is_active       boolean NOT NULL DEFAULT true,
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz NOT NULL DEFAULT now()
 );
+-- موبایل برای ورود با پیامک: یکتا فقط برای مقادیر غیرخالی
+CREATE UNIQUE INDEX uq_users_mobile ON users(mobile) WHERE mobile IS NOT NULL;
 
 CREATE TABLE roles (
     id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),

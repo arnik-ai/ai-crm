@@ -74,6 +74,18 @@ export function getSession(): SessionInfo {
   return empty;
 }
 
+/** آیا حالت دمو فعال است؟ (در دمو نیازی به ورود نیست) */
+export function isDemoMode(): boolean {
+  return DEMO_FORCED;
+}
+
+/** آیا کاربر واقعاً وارد شده (توکن معتبر دارد)؟ در حالت دمو همیشه true. */
+export function isAuthenticated(): boolean {
+  if (DEMO_FORCED) return true;
+  if (typeof window === "undefined") return false;
+  return !!localStorage.getItem("access_token");
+}
+
 /** آیا کاربر دسترسی مدیریتی دارد (مدیر فروش یا ادمین)؟ */
 export function isManager(s: SessionInfo): boolean {
   return s.roles.includes("admin") || s.roles.includes("sales_manager");

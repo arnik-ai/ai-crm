@@ -4,8 +4,6 @@ Revision ID: 0002_fields
 Revises: 0001_initial
 Create Date: 2026-06-22
 """
-import sqlalchemy as sa
-
 from alembic import op
 
 revision = "0002_fields"
@@ -15,18 +13,17 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # دانشجو
-    op.add_column("students", sa.Column("city", sa.Text(), nullable=True))
-    op.add_column("students", sa.Column("field", sa.Text(), nullable=True))
-    op.add_column("students", sa.Column("grade", sa.Text(), nullable=True))
-    op.add_column("students", sa.Column("goal", sa.Text(), nullable=True))
-    # تماس — نتیجه‌ی فروشِ دستی (جدا از status فنی)
-    op.add_column("calls", sa.Column("outcome", sa.Text(), nullable=True))
+    # idempotent: این ستون‌ها در schema.sql هم هستند؛ روی نصب تازه دوباره ساخته نمی‌شوند.
+    op.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS city text")
+    op.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS field text")
+    op.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS grade text")
+    op.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS goal text")
+    op.execute("ALTER TABLE calls ADD COLUMN IF NOT EXISTS outcome text")
 
 
 def downgrade() -> None:
-    op.drop_column("calls", "outcome")
-    op.drop_column("students", "goal")
-    op.drop_column("students", "grade")
-    op.drop_column("students", "field")
-    op.drop_column("students", "city")
+    op.execute("ALTER TABLE calls DROP COLUMN IF EXISTS outcome")
+    op.execute("ALTER TABLE students DROP COLUMN IF EXISTS goal")
+    op.execute("ALTER TABLE students DROP COLUMN IF EXISTS grade")
+    op.execute("ALTER TABLE students DROP COLUMN IF EXISTS field")
+    op.execute("ALTER TABLE students DROP COLUMN IF EXISTS city")

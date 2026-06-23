@@ -25,6 +25,9 @@ class User(Base):
 
     tenant_id: Mapped[UUID | None] = mapped_column(nullable=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    # موبایل برای ورود با پیامک (اختیاری، یکتا در صورت وجود)
+    mobile: Mapped[str | None] = mapped_column(
+        String(20), unique=True, index=True, nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

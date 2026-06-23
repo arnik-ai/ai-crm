@@ -43,6 +43,49 @@ class AuthService:
             "expires_in": get_settings().jwt_access_ttl,
         }
 
+    async def request_otp(self, mobile: str) -> dict:
+        """برای کاربرِ دارایِ این موبایل، کد می‌سازد و پیامک می‌کند.
+
+        برای جلوگیری از افشای اینکه چه شماره‌هایی کاربر هستند (user enumeration)،
+        حتی اگر کاربر پیدا نشود پاسخِ موفق برمی‌گردد ولی پیامکی ارسال نمی‌شود.
+        """
+        from src.modules.identity.application.otp_service import OtpService
+        from src.modules.identity.infrastructure.sms.factory import get_sms_provider
+
+        result = await self._session.execute(
+            select(User).where(User.mobile == mobile, User.is_active.is_(True))
+        )
+        user = result.scalar_one_or_none()
+
+        debug_code = None
+        if user is not None:
+            otp = OtpService(self._redis)
+            code = await otp.generate(mobile)
+            provider = get_sms_provider()
+            await provider.send_otp(mobile, code)
+            if provider.returns_debug_code:
+                debug_code = code  # فقط در حالت تستی (console)
+
+        from src.shared.config.settings import get_settings
+        return {"sent": True, "cooldown": get_settings().otp_request_cooldown,
+                "debug_code": debug_code}
+
+    async def login_with_otp(self, mobile: str, code: str) -> dict:
+        """ورود با کد پیامکی: بررسی کد و صدور توکن برای کاربرِ آن موبایل."""
+        from src.modules.identity.application.otp_service import OtpService
+
+        otp = OtpService(self._redis)
+        if not await otp.verify(mobile, code):
+            raise AuthError("کد واردشده نادرست است", code="OTP_INVALID")
+
+        result = await self._session.execute(
+            select(User).where(User.mobile == mobile, User.is_active.is_(True))
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise AuthError("کاربری با این شماره یافت نشد", code="USER_NOT_FOUND")
+        return await self._issue_for_user(str(user.id))
+
     async def refresh(self, refresh_token: str) -> dict:
         payload = decode_token(refresh_token)
         if payload.get("type") != "refresh":
