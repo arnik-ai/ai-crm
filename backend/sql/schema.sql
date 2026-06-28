@@ -82,6 +82,7 @@ CREATE TABLE students (
     field              text,
     grade              text,
     goal               text,
+    gpa                numeric(4,2),
     course_interest_id uuid REFERENCES courses(id) ON DELETE SET NULL,
     lead_source        text,
     assigned_agent_id  uuid REFERENCES users(id) ON DELETE SET NULL,
@@ -161,6 +162,20 @@ CREATE INDEX ix_sales_sold    ON sales(sold_at DESC);
 CREATE INDEX ix_sales_agent   ON sales(agent_id);
 CREATE INDEX ix_sales_student ON sales(student_id);
 CREATE INDEX ix_sales_renewal ON sales(renewal_due_at) WHERE renewal_due_at IS NOT NULL;
+
+CREATE TABLE messages (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id uuid REFERENCES students(id) ON DELETE SET NULL,
+    sender_id  uuid REFERENCES users(id) ON DELETE SET NULL,
+    mobile     text,
+    channel    text NOT NULL CHECK (channel IN ('sms','whatsapp','telegram')),
+    body       text NOT NULL,
+    status     text NOT NULL DEFAULT 'sent',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_messages_student ON messages(student_id);
+CREATE INDEX ix_messages_created ON messages(created_at DESC);
 
 -- ---------- Telephony ----------
 CREATE TABLE calls (

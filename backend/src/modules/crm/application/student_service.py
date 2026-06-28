@@ -1,7 +1,7 @@
 """سرویس دامنه‌ی دانشجو — منطق CRUD، تغییر مرحله، یادداشت و پیگیری."""
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.crm.api.schemas import (
@@ -15,6 +15,7 @@ from src.modules.crm.infrastructure.models import (
     Activity,
     Course,
     Followup,
+    Message,
     Note,
     SalesStage,
     Student,
@@ -252,6 +253,79 @@ class StudentService:
             )
             .order_by(Student.created_at.desc())
         )
+
+    async def list_incomplete(self, limit: int = 1000) -> dict:
+        """گزارش «اطلاعات ناقص»: هر دانشجو چه چیزی کم دارد.
+
+        موارد بررسی‌شده: نام، رشته، پایه، هدف، معدل، پیامک سامانه‌ای،
+        پیام واتساپ/تلگرام، و توضیحات (یادداشت).
+        """
+        has_note = exists().where(Note.student_id == Student.id)
+        has_sms = exists().where(Message.student_id == Student.id,
+                                 Message.channel == "sms")
+        has_wa = exists().where(Message.student_id == Student.id,
+                                Message.channel == "whatsapp")
+        has_tg = exists().where(Message.student_id == Student.id,
+                                Message.channel == "telegram")
+        rows = (await self._s.execute(
+            select(
+                Student.id, Student.full_name, Student.mobile, Student.field,
+                Student.grade, Student.goal, Student.gpa,
+                has_note.label("has_note"), has_sms.label("has_sms"),
+                has_wa.label("has_wa"), has_tg.label("has_tg"),
+            )
+            .where(Student.deleted_at.is_(None))
+            .order_by(Student.created_at.desc())
+            .limit(limit)
+        )).all()
+
+        items = []
+        for r in rows:
+            missing = []
+            if not r.full_name:
+                missing.append("نام و نام خانوادگی")
+            if not r.field:
+                missing.append("رشته")
+            if not r.grade:
+                missing.append("پایه")
+            if not r.goal:
+                missing.append("هدف")
+            if r.gpa is None:
+                missing.append("معدل")
+            if not r.has_sms:
+                missing.append("پیامک سامانه‌ای")
+            if not r.has_wa and not r.has_tg:
+                missing.append("پیام واتساپ/تلگرام")
+            if not r.has_note:
+                missing.append("توضیحات")
+            if missing:
+                items.append({
+                    "id": str(r.id),
+                    "full_name": r.full_name,
+                    "mobile": r.mobile,
+                    "missing": missing,
+                })
+        return {"items": items, "count": len(items)}
+
+    async def find_or_create_by_mobile(
+        self, mobile: str, full_name: str | None = None,
+        lead_source: str | None = None
+    ) -> Student:
+        """دانشجو را با موبایل پیدا می‌کند؛ اگر نبود می‌سازد (برای ثبت فیش/تماس)."""
+        existing = await self._s.scalar(
+            select(Student).where(Student.mobile == mobile,
+                                  Student.deleted_at.is_(None))
+        )
+        if existing:
+            # تکمیل نام در صورت خالی‌بودن
+            if full_name and not existing.full_name:
+                existing.full_name = full_name
+            return existing
+        student = Student(full_name=full_name, mobile=mobile,
+                          lead_source=lead_source)
+        self._s.add(student)
+        await self._s.flush()
+        return student
 
     async def _get_or_404(self, student_id: UUID) -> Student:
         student = await self._s.scalar(

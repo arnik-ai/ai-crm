@@ -27,6 +27,7 @@ class StudentCreate(BaseModel):
     field: StudyField | None = None
     grade: Grade | None = None
     goal: str | None = None
+    gpa: float | None = Field(default=None, ge=0, le=20)
     course_interest_id: UUID | None = None
     lead_source: LeadSource | None = None
     assigned_agent_id: UUID | None = None
@@ -43,6 +44,7 @@ class StudentUpdate(BaseModel):
     field: StudyField | None = None
     grade: Grade | None = None
     goal: str | None = None
+    gpa: float | None = Field(default=None, ge=0, le=20)
     course_interest_id: UUID | None = None
     lead_source: LeadSource | None = None
     assigned_agent_id: UUID | None = None
@@ -58,6 +60,7 @@ class StudentOut(BaseModel):
     field: str | None = None
     grade: str | None = None
     goal: str | None = None
+    gpa: float | None = None
     lead_source: str | None = None
     status: str
     sales_stage_id: UUID | None
@@ -170,3 +173,29 @@ class SaleOut(BaseModel):
     payment_ref: str | None = None
     date: str
     renewal_due: str | None = None
+
+
+# ---------- پیام‌رسانی (پیامک/واتساپ/تلگرام) ----------
+MessageChannel = Literal["sms", "whatsapp", "telegram"]
+
+
+class MessageCreate(BaseModel):
+    mobile: str = Field(pattern=r"^\+?\d{10,15}$")
+    channel: MessageChannel
+    body: str = Field(min_length=1)
+    student_id: UUID | None = None
+
+    @field_validator("mobile")
+    @classmethod
+    def normalize_mobile(cls, v: str) -> str:
+        return _normalize_mobile(v)
+
+
+class MessageOut(BaseModel):
+    id: str
+    student_name: str | None = None
+    mobile: str | None = None
+    channel: str
+    body: str
+    status: str
+    date: str

@@ -10,7 +10,7 @@ import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDigits } from "@/lib/utils";
-import { Search, ShoppingCart, Receipt, Wallet, CreditCard, Plus, X, Loader2 } from "lucide-react";
+import { Search, ShoppingCart, Receipt, Wallet, CreditCard, CalendarRange, Plus, X, Loader2 } from "lucide-react";
 
 const DEMO = isDemoMode();
 const PROGRAM = "برنامه";
@@ -37,6 +37,8 @@ type Sale = {
 type SalesResponse = {
   items: Sale[];
   total_amount: number;
+  total_program?: number;
+  total_other?: number;
   count: number;
   page?: number;
   size?: number;
@@ -113,8 +115,9 @@ export default function SalesPage() {
     return list;
   }, [data, q, payment]);
 
-  const shownAmount = items.reduce((sum, s) => sum + (s.amount ?? 0), 0);
   const totalAmount = data?.total_amount ?? 0;
+  const totalProgram = data?.total_program ?? 0;
+  const totalOther = data?.total_other ?? 0;
   const count = data?.count ?? items.length;
 
   return (
@@ -148,12 +151,26 @@ export default function SalesPage() {
         </div>
 
         {/* کارت‌های خلاصه */}
-        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
             <Wallet className="text-emerald-500" size={26} />
             <div>
               <div className="text-2xl font-extrabold text-slate-800">{amountMillions(totalAmount)}</div>
-              <div className="text-xs text-slate-500">مجموع فروش</div>
+              <div className="text-xs text-slate-500">مجموع کل فروش</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
+            <CalendarRange className="text-indigo-500" size={26} />
+            <div>
+              <div className="text-2xl font-extrabold text-slate-800">{amountMillions(totalProgram)}</div>
+              <div className="text-xs text-slate-500">جمع فروش برنامه‌ها</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 shadow-sm">
+            <CreditCard className="text-violet-500" size={26} />
+            <div>
+              <div className="text-2xl font-extrabold text-slate-800">{amountMillions(totalOther)}</div>
+              <div className="text-xs text-slate-500">جمع سایر محصولات</div>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
@@ -161,13 +178,6 @@ export default function SalesPage() {
             <div>
               <div className="text-2xl font-extrabold text-slate-800">{faNum(count)}</div>
               <div className="text-xs text-slate-500">تعداد فروش</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 shadow-sm">
-            <CreditCard className="text-violet-500" size={26} />
-            <div>
-              <div className="text-2xl font-extrabold text-slate-800">{amountMillions(shownAmount)}</div>
-              <div className="text-xs text-slate-500">جمع نمایش‌داده‌شده</div>
             </div>
           </div>
         </div>

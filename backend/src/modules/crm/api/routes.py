@@ -1,4 +1,5 @@
 """Routerهای CRM — دانشجو، یادداشت، تگ، پیگیری، دوره (اسکلت با سرویس)."""
+from datetime import date, datetime, time, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -10,6 +11,7 @@ from src.modules.crm.api.schemas import (
     CourseCreate,
     CourseUpdate,
     FollowupCreate,
+    MessageCreate,
     NoteCreate,
     Paginated,
     SaleCreate,
@@ -22,11 +24,19 @@ from src.modules.crm.api.schemas import (
     TagCreate,
 )
 from src.modules.crm.application.catalog_service import CatalogService
+from src.modules.crm.application.messaging_service import MessagingService
 from src.modules.crm.application.sales_service import SalesService
 from src.modules.crm.application.student_service import StudentService
 from src.modules.identity.api.dependencies import current_user, require_permission
 from src.shared.db.base import get_session
 from src.shared.export.csv_stream import stream_csv_response
+
+
+def _day_start(d: date | None) -> datetime | None:
+    """تبدیل تاریخ به ابتدای روز (UTC) برای فیلتر بازه."""
+    if d is None:
+        return None
+    return datetime.combine(d, time.min, tzinfo=timezone.utc)
 
 router = APIRouter()
 
@@ -62,6 +72,15 @@ async def export_students(
                               r.goal, r.lead_source, r.status, r.stage],
         filename="دانشجویان",
     )
+
+
+@router.get("/students/incomplete")
+async def list_incomplete_students(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """گزارش دانشجویانی که اطلاعاتشان ناقص است (نام/رشته/پایه/هدف/معدل/پیام/توضیح)."""
+    return await StudentService(session).list_incomplete()
 
 
 @router.post("/students", response_model=StudentOut, status_code=201)
@@ -194,6 +213,15 @@ async def create_sale(
     return await SalesService(session).create_sale(body, agent_id=user.id)
 
 
+@router.get("/sales/timeline")
+async def sales_timeline(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """تایم‌لاینِ ورود→تماس→خرید (تعداد تماس و روز تا خرید)."""
+    return await SalesService(session).purchase_timeline()
+
+
 @router.get("/sales/export")
 async def export_sales(
     session: AsyncSession = Depends(get_session),
@@ -210,6 +238,57 @@ async def export_sales(
                               r.program_months, float(r.amount) if r.amount is not None else 0,
                               r.payment_method, r.payment_ref],
         filename="لیست-فروش",
+    )
+
+
+# ---------- Messages (پیامک/واتساپ/تلگرام + گزارش ارتباطات) ----------
+@router.post("/messages", status_code=201)
+async def create_message(
+    body: MessageCreate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    """ثبت/ارسال پیام (پیامک واقعی؛ واتساپ/تلگرام فقط ثبت می‌شوند)."""
+    return await MessagingService(session).create(body, sender_id=user.id)
+
+
+@router.get("/messages")
+async def list_messages(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    student_id: UUID | None = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """گزارش ارتباطات: چه پیامی در چه بازه‌ای برای چه کسی ارسال شده."""
+    # date_to شاملِ کلِ آن روز باشد → تا ابتدای روزِ بعد
+    to_dt = _day_start(date_to)
+    if to_dt is not None:
+        from datetime import timedelta
+        to_dt = to_dt + timedelta(days=1)
+    return await MessagingService(session).list(
+        _day_start(date_from), to_dt, student_id, page, size)
+
+
+@router.get("/messages/export")
+async def export_messages(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+):
+    """خروجی اکسلِ گزارش ارتباطات (استریم‌شده)."""
+    svc = MessagingService(session)
+    channel_fa = {"sms": "پیامک", "whatsapp": "واتساپ", "telegram": "تلگرام"}
+    return await stream_csv_response(
+        session,
+        svc.export_query(),
+        headers=["نام", "موبایل", "کانال", "متن پیام", "وضعیت", "تاریخ"],
+        row_mapper=lambda r: [
+            r.student_name or "—", r.mobile,
+            channel_fa.get(r.channel, r.channel), r.body, r.status, r.created_at,
+        ],
+        filename="گزارش-ارتباطات",
     )
 
 

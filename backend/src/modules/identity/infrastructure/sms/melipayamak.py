@@ -27,7 +27,16 @@ class MelipayamakSmsProvider(SmsProvider):
         if self._pattern:
             await self._send_by_pattern(mobile, code)
         else:
-            await self._send_plain(mobile, code)
+            await self._send_plain(mobile, f"کد ورود شما: {code}")
+
+    async def send_text(self, mobile: str, text: str) -> None:
+        """ارسالِ واقعیِ پیامکِ متنِ آزاد (غیر OTP) از طریق وب‌سرویس SendSMS.
+
+        برخلاف OTP، اینجا از الگو استفاده نمی‌شود؛ متن همان‌طور که هست با
+        شماره‌ی from ارسال می‌شود. در صورت خطا، استثنا پرتاب می‌شود تا لایه‌ی
+        بالا (MessagingService) بتواند status=failed ثبت کند.
+        """
+        await self._send_plain(mobile, text)
 
     async def _send_by_pattern(self, mobile: str, code: str) -> None:
         """ارسال با الگوی تأییدشده (BaseServiceNumber)."""
@@ -42,8 +51,8 @@ class MelipayamakSmsProvider(SmsProvider):
             resp = await client.post(f"{_BASE}/BaseServiceNumber", data=payload)
             resp.raise_for_status()
 
-    async def _send_plain(self, mobile: str, code: str) -> None:
-        text = f"کد ورود شما: {code}"
+    async def _send_plain(self, mobile: str, text: str) -> None:
+        """ارسال پیامکِ متنِ کامل از شماره‌ی from (مشترک بین OTP ساده و متن آزاد)."""
         payload = {
             "username": self._username,
             "password": self._password,

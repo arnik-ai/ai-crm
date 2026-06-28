@@ -79,6 +79,15 @@ async def tasks_today(
     return await DashboardService(session).tasks_today(owner_id=user.id)
 
 
+@router.get("/missing-next-call")
+async def missing_next_call(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("calls:read")),
+) -> dict:
+    """تماس‌های اقدام‌شده‌ی امروز که «تماس بعدی» برایشان تعیین نشده (برای یادآور)."""
+    return await DashboardService(session).calls_missing_next_call(owner_id=user.id)
+
+
 @router.get("/daily-report")
 async def daily_report(
     date: str | None = None,
@@ -111,6 +120,21 @@ async def daily_performance(
         f"dash:daily-perf:{user.tenant_id}:{days}", CACHE_TTL_LONG,
         lambda: DashboardService(session).daily_performance(
             tenant_id=user.tenant_id, days=days
+        ),
+    )
+
+
+@router.get("/hourly")
+async def hourly_stats(
+    agent: str | None = None,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("dashboard:read")),
+) -> dict:
+    """توزیع ساعتیِ واریز/پاسخ/بی‌پاسخ + میانگین مکالمه (کلی یا تفکیک نیرو)."""
+    return await cached_json(
+        f"dash:hourly:{user.tenant_id}:{agent or 'all'}", CACHE_TTL_LONG,
+        lambda: DashboardService(session).hourly_stats(
+            tenant_id=user.tenant_id, agent_id=agent
         ),
     )
 

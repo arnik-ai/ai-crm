@@ -13,6 +13,7 @@ from sqlalchemy import (
     Column,
     Text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.shared.db.base import Base
@@ -52,6 +53,8 @@ class Student(Base):
     # پایه: tenth / eleventh / twelfth / graduate (دهم/یازدهم/دوازدهم/فارغ‌التحصیل)
     grade: Mapped[str | None] = mapped_column(String(30), nullable=True)
     goal: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # معدل (۰ تا ۲۰، با اعشار)
+    gpa: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
     course_interest_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("courses.id", ondelete="SET NULL"), nullable=True)
     # منبع تماس: site / instagram / telegram / rubika / bale / sms / other
@@ -96,7 +99,7 @@ class Activity(Base):
     student_id: Mapped[UUID] = mapped_column(
         ForeignKey("students.id", ondelete="CASCADE"), index=True)
     type: Mapped[str] = mapped_column(String(50))
-    payload: Mapped[dict | None] = mapped_column(nullable=True)
+    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
 class Sale(Base):
@@ -121,3 +124,23 @@ class Sale(Base):
     # موعد تمدید (فقط برای برنامه): sold_at + program_months — برای یادآوری فاز ۲
     renewal_due_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True)
+
+
+class Message(Base):
+    """لاگ پیام‌های ارسالی به مخاطب — پیامک سامانه‌ای / واتساپ / تلگرام.
+
+    برای گزارش «چه چیزی برای این شخص ارسال شده». ارسالِ واقعیِ پیامک پشت
+    SmsProvider است؛ واتساپ/تلگرام از سمت کلاینت (لینک) باز می‌شوند و اینجا
+    فقط ثبت می‌شوند.
+    """
+    __tablename__ = "messages"
+    student_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("students.id", ondelete="SET NULL"), nullable=True, index=True)
+    sender_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    mobile: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # کانال: sms / whatsapp / telegram
+    channel: Mapped[str] = mapped_column(String(20))
+    body: Mapped[str] = mapped_column(Text)
+    # وضعیت: sent / queued / failed
+    status: Mapped[str] = mapped_column(String(20), default="sent")

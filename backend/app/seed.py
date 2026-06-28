@@ -17,7 +17,7 @@ from src.shared.security.password import hash_password
 PERMISSIONS = [
     "students:read", "students:write",
     "courses:write",
-    "calls:read",
+    "calls:read", "calls:write",
     "followups:read", "followups:write",
     "dashboard:read",
     "ai:read", "ai:write",
@@ -28,11 +28,11 @@ PERMISSIONS = [
 # نگاشت نقش → مجوزها
 ROLE_PERMS = {
     "admin": PERMISSIONS,
-    "sales_manager": ["students:read", "students:write", "calls:read",
+    "sales_manager": ["students:read", "students:write", "calls:read", "calls:write",
                       "followups:read", "followups:write", "dashboard:read",
                       "ai:read", "assistant:read", "courses:write",
                       "users:read", "users:write"],
-    "sales_agent": ["students:read", "students:write", "calls:read",
+    "sales_agent": ["students:read", "students:write", "calls:read", "calls:write",
                     "followups:read", "followups:write", "ai:read",
                     "assistant:read"],
     "viewer": ["students:read", "calls:read", "dashboard:read"],

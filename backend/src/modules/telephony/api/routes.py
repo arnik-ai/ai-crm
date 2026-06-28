@@ -1,7 +1,9 @@
 """Routerهای تماس‌ها (Calls)."""
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.identity.api.dependencies import require_permission
@@ -10,6 +12,18 @@ from src.shared.db.base import get_session
 from src.shared.export.csv_stream import stream_csv_response
 
 router = APIRouter()
+
+
+class OutcomeRequest(BaseModel):
+    """بدنه‌ی ثبت نتیجه‌ی تماس + (اختیاری) تعیین تماس بعدی.
+
+    outcome یکی از: successful / unsuccessful / busy / no_answer / follow_up
+    next_call_at اگر داده شود، یک پیگیری (followup) برای دانشجو ساخته می‌شود.
+    """
+
+    outcome: str | None = None
+    next_call_at: datetime | None = None
+    note: str | None = None
 
 
 def _call_direction_label(direction: str, status: str | None) -> str:
@@ -85,6 +99,23 @@ async def get_recording_url(
         return {"url": None}
     url = await S3Storage().presigned_url(rec["storage_key"])
     return {"url": url}
+
+
+@router.post("/{call_id}/outcome")
+async def set_call_outcome(
+    call_id: UUID,
+    body: OutcomeRequest,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("calls:write")),
+) -> dict:
+    """ثبت نتیجه‌ی تماس و (اختیاری) تعیین تاریخ تماس بعدی.
+
+    اگر next_call_at داده شود، یک پیگیری برای دانشجوی همان شماره ساخته می‌شود
+    تا در «کارهای روز» دیده شود.
+    """
+    return await CallQueryService(session).set_outcome(
+        call_id, body.outcome, body.next_call_at, body.note, actor_id=user.id,
+    )
 
 
 @router.post("/{call_id}/reanalyze")

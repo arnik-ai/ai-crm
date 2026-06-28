@@ -1,7 +1,8 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { isDemoMode } from "@/lib/auth";
 import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { BackButton } from "@/components/BackButton";
@@ -20,7 +21,21 @@ import {
   Pencil,
   ShieldCheck,
   TriangleAlert,
+  ClipboardCheck,
+  X,
+  Loader2,
 } from "lucide-react";
+
+const DEMO = isDemoMode();
+
+/** گزینه‌های نتیجه‌ی تماس (مطابق وضعیت‌های فروش). */
+const OUTCOMES = [
+  { v: "successful", label: "موفق" },
+  { v: "unsuccessful", label: "ناموفق" },
+  { v: "busy", label: "مشغول/مشترک" },
+  { v: "no_answer", label: "پاسخ نداد" },
+  { v: "follow_up", label: "پیگیری" },
+];
 
 type Call = {
   id: string;
@@ -169,6 +184,8 @@ export default function CallsPage() {
 
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
+  // تماسی که مودال «ثبت نتیجه» برایش باز است (null = بسته)
+  const [outcomeCall, setOutcomeCall] = useState<Call | null>(null);
 
   // شمارش برای کارت‌های آماری
   const counts = useMemo(() => ({
@@ -286,6 +303,13 @@ export default function CallsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setOutcomeCall(c)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                    title="ثبت نتیجه‌ی تماس و تعیین تماس بعدی"
+                  >
+                    <ClipboardCheck size={14} /> ثبت نتیجه
+                  </button>
                   {c.status !== "missed" && (
                     <button
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
@@ -339,7 +363,154 @@ export default function CallsPage() {
             </div>
           )}
         </div>
+
+        {outcomeCall && (
+          <OutcomeModal call={outcomeCall} onClose={() => setOutcomeCall(null)} />
+        )}
       </main>
+    </div>
+  );
+}
+
+/* ---------- مودال ثبت نتیجه‌ی تماس + تعیین تماس بعدی ---------- */
+function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [outcome, setOutcome] = useState(call.outcome ?? "");
+  const [nextCall, setNextCall] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!outcome && !nextCall) {
+      setMsg("حداقل نتیجه یا تاریخ تماس بعدی را وارد کنید.");
+      return;
+    }
+    setMsg("");
+    setLoading(true);
+    try {
+      if (DEMO) {
+        setMsg("در حالت نمایشی ذخیره نمی‌شود.");
+        return;
+      }
+      await api.post(`/calls/${call.id}/outcome`, {
+        outcome: outcome || null,
+        next_call_at: nextCall ? new Date(nextCall).toISOString() : null,
+        note: note || null,
+      });
+      qc.invalidateQueries({ queryKey: ["calls"] });
+      qc.invalidateQueries({ queryKey: ["tasks-today"] });
+      onClose();
+    } catch {
+      setMsg("ثبت ناموفق بود.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <ClipboardCheck size={18} className="text-emerald-600" />
+            ثبت نتیجه‌ی تماس
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <p className="mb-4 text-sm text-slate-500">
+          {call.student_name ?? "ناشناس"} ·{" "}
+          <span dir="ltr">{call.caller_number}</span>
+        </p>
+
+        <form onSubmit={submit} className="space-y-4">
+          {/* نتیجه‌ی تماس */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              نتیجه‌ی تماس
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {OUTCOMES.map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setOutcome(o.v === outcome ? "" : o.v)}
+                  className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                    outcome === o.v
+                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200"
+                      : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* تاریخ تماس بعدی */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              تاریخ و ساعت تماس بعدی{" "}
+              <span className="font-normal text-slate-400">(اختیاری)</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={nextCall}
+              onChange={(e) => setNextCall(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400"
+              dir="ltr"
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              اگر تعیین شود، یک پیگیری در «کارهای روز» ساخته می‌شود.
+            </p>
+          </div>
+
+          {/* توضیح */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              توضیح{" "}
+              <span className="font-normal text-slate-400">(اختیاری)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="مثلاً: درخواست اطلاعات بیشتر داشت…"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            >
+              انصراف
+            </button>
+            <button
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {loading && <Loader2 size={15} className="animate-spin" />} ثبت نتیجه
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

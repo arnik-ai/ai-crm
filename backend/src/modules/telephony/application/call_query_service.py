@@ -1,11 +1,12 @@
 """سرویس کوئری تماس‌ها — لیست با فیلتر و جزئیات کامل (recording/transcript/score)."""
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.ai_analysis.infrastructure.models import LeadScore
-from src.modules.crm.infrastructure.models import Student
+from src.modules.crm.infrastructure.models import Followup, Student
 from src.modules.telephony.infrastructure.models import (
     Call,
     Recording,
@@ -62,6 +63,46 @@ class CallQueryService:
             for c in rows
         ]
         return {"items": items, "total": total or 0, "page": page, "size": size}
+
+    async def set_outcome(self, call_id: UUID, outcome: str | None,
+                          next_call_at: datetime | None, note: str | None,
+                          actor_id: str) -> dict:
+        """ثبت نتیجه‌ی تماس و (اختیاری) تعیین تماس بعدی.
+
+        اگر next_call_at داده شود، یک پیگیری (followup) برای دانشجوی همان شماره
+        ساخته می‌شود تا در «کارهای روز» ظاهر شود. اگر دانشجو وجود نداشت، با شماره‌ی
+        تماس ساخته می‌شود.
+        """
+        call = await self._s.get(Call, call_id)
+        if call is None:
+            raise NotFoundError("تماس یافت نشد")
+        if outcome:
+            call.outcome = outcome
+
+        followup_created = False
+        if next_call_at is not None:
+            student = None
+            if call.student_id:
+                student = await self._s.get(Student, call.student_id)
+            if student is None and call.caller_number:
+                student = await self._s.scalar(
+                    select(Student).where(Student.mobile == call.caller_number,
+                                          Student.deleted_at.is_(None))
+                )
+                if student is None:
+                    student = Student(mobile=call.caller_number)
+                    self._s.add(student)
+                    await self._s.flush()
+                call.student_id = student.id
+            if student is not None:
+                self._s.add(Followup(
+                    student_id=student.id, owner_id=actor_id,
+                    due_at=next_call_at, note=note or "تماس بعدی",
+                ))
+                followup_created = True
+
+        await self._s.commit()
+        return {"status": "ok", "followup_created": followup_created}
 
     def export_calls_query(self):
         """کوئری همه‌ی تماس‌ها (بدون صفحه‌بندی) برای خروجی استریم‌شده.

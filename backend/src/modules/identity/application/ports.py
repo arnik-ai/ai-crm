@@ -1,5 +1,8 @@
 """Portهای ماژول هویت — اینترفیس‌های قابل‌تعویض (Provider Abstraction)."""
+import logging
 from abc import ABC, abstractmethod
+
+_logger = logging.getLogger("sms")
 
 
 class SmsProvider(ABC):
@@ -11,6 +14,15 @@ class SmsProvider(ABC):
 
         در صورت خطای ارسال باید استثنا پرتاب کند تا لایه‌ی بالا مدیریت کند.
         """
+
+    async def send_text(self, mobile: str, text: str) -> None:
+        """ارسال پیامکِ متنِ آزاد (غیر OTP).
+
+        پیاده‌سازی پیش‌فرض فقط لاگ می‌کند تا با هر provid‌ری بدون خطا کار کند؛
+        providerِ واقعی (مثل Melipayamak) این متد را با API ارسالِ خود بازنویسی
+        می‌کند. این‌طور انتخاب سرویس‌دهنده بعداً بدون تغییر بقیه‌ی کد ممکن است.
+        """
+        _logger.info("SMS (text) → %s : %s", mobile, text)
 
     @property
     def returns_debug_code(self) -> bool:

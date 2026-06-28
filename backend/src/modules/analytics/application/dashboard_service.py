@@ -5,15 +5,16 @@
   گرم (warm) 40..69
   سرد (cold) < 40  (یا بدون امتیاز)
 """
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
-from sqlalchemy import Integer, and_, case, distinct, func, select
+from sqlalchemy import Integer, and_, case, distinct, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.ai_analysis.infrastructure.models import LeadScore
-from src.modules.crm.infrastructure.models import Followup, SalesStage, Student
+from src.modules.crm.infrastructure.models import Followup, Sale, SalesStage, Student
 from src.modules.identity.infrastructure.models import User
 from src.modules.telephony.infrastructure.models import Call
+from src.shared.utils.jalali import fiscal_month
 
 HOT_THRESHOLD = 70
 WARM_THRESHOLD = 40
@@ -262,10 +263,140 @@ class DashboardService:
             for cid, num, sa, name in miss_rows
         ]
 
+        # ۴) یادآور تمدید برنامه: موعدهای تمدید از امروز تا ۵ روز آینده
+        renew_until = today + timedelta(days=6)  # شامل ۵ روز کامل پیش‌رو
+        ren_rows = await self._s.execute(
+            select(Sale.id, Sale.student_name, Sale.mobile,
+                   Sale.renewal_due_at, Sale.program_months)
+            .where(Sale.renewal_due_at.is_not(None),
+                   Sale.renewal_due_at >= today,
+                   Sale.renewal_due_at < renew_until)
+            .order_by(Sale.renewal_due_at)
+        )
+        renewal_reminders = [
+            {"id": str(sid), "student_name": name or mobile, "mobile": mobile,
+             "renewal_due_at": due.isoformat() if due else None,
+             "program_months": months}
+            for sid, name, mobile, due, months in ren_rows
+        ]
+
         return {
             "followups": followups,
             "pending_action_calls": pending_action,
             "missed_calls": missed,
+            "renewal_reminders": renewal_reminders,
+        }
+
+    async def calls_missing_next_call(self, owner_id: str) -> dict:
+        """تماس‌های امروز که اقدام (نتیجه) خورده ولی «تماس بعدی» برایشان تعیین نشده.
+
+        برای یادآور دوره‌ای: «☎️ برای فلانی تایم تماس بعدی رو تعیین نکردی».
+        تماس‌های «موفق» (فروش‌شده) را نادیده می‌گیریم تا بی‌مورد یادآوری نشود.
+        """
+        today = _start_of_today()
+        now = datetime.now(tz=timezone.utc)
+        future_fu = (
+            select(Followup.id)
+            .where(Followup.student_id == Call.student_id,
+                   Followup.due_at > now, Followup.status == "pending")
+            .correlate(Call).exists()
+        )
+        rows = await self._s.execute(
+            select(Call.id, Call.caller_number, Student.full_name)
+            .outerjoin(Student, Student.id == Call.student_id)
+            .where(Call.started_at >= today,
+                   Call.outcome.is_not(None),
+                   Call.outcome != "successful",
+                   Call.status != "missed",
+                   ~future_fu)
+            .order_by(Call.started_at.desc())
+            .limit(50)
+        )
+        items = [
+            {"id": str(cid), "student_name": name, "mobile": num}
+            for cid, num, name in rows
+        ]
+        return {"items": items}
+
+    async def hourly_stats(self, tenant_id: str | None,
+                           agent_id: str | None = None) -> dict:
+        """توزیع ساعتی (به وقت تهران): واریز، پاسخ‌دهی، بی‌پاسخ، فعالیت تماس
+        + میانگین مدت مکالمه (کل و به تفکیک نیرو).
+
+        خروجی برای نمودار: آرایه‌های ۲۴تایی (ساعت ۰ تا ۲۳).
+        """
+        def _tehran(col):
+            return func.timezone("Asia/Tehran", col)
+
+        # ساعتِ تماس‌ها
+        h_call = func.extract("hour", _tehran(Call.started_at))
+        call_filters = [Call.started_at.is_not(None)]
+        if agent_id:
+            call_filters.append(Call.agent_id == agent_id)
+        call_rows = (await self._s.execute(
+            select(
+                h_call.label("h"),
+                func.sum(case((Call.status != "missed", 1), else_=0)).label("answered"),
+                func.sum(case((Call.status == "missed", 1), else_=0)).label("missed"),
+                func.count(Call.id).label("total"),
+            ).where(*call_filters).group_by(h_call)
+        )).all()
+
+        # ساعتِ واریزها (فروش)
+        h_sale = func.extract("hour", _tehran(Sale.sold_at))
+        sale_filters = [Sale.sold_at.is_not(None)]
+        if agent_id:
+            sale_filters.append(Sale.agent_id == agent_id)
+        sale_rows = (await self._s.execute(
+            select(
+                h_sale.label("h"),
+                func.count(Sale.id).label("cnt"),
+                func.coalesce(func.sum(Sale.amount), 0).label("amount"),
+            ).where(*sale_filters).group_by(h_sale)
+        )).all()
+
+        answered = [0] * 24
+        missed = [0] * 24
+        calls = [0] * 24
+        pay_cnt = [0] * 24
+        pay_amt = [0.0] * 24
+        for r in call_rows:
+            i = int(r.h)
+            answered[i] = int(r.answered or 0)
+            missed[i] = int(r.missed or 0)
+            calls[i] = int(r.total or 0)
+        for r in sale_rows:
+            i = int(r.h)
+            pay_cnt[i] = int(r.cnt or 0)
+            pay_amt[i] = float(r.amount or 0)
+
+        # میانگین مدت مکالمه
+        avg_all = await self._s.scalar(
+            select(func.coalesce(func.avg(Call.duration_sec), 0))
+            .where(Call.status != "missed")
+        ) or 0
+        per_agent_rows = (await self._s.execute(
+            select(User.full_name,
+                   func.coalesce(func.avg(Call.duration_sec), 0).label("avg"))
+            .join(User, User.id == Call.agent_id)
+            .where(Call.status != "missed")
+            .group_by(User.full_name)
+        )).all()
+
+        return {
+            "hours": list(range(24)),
+            "answered": answered,
+            "missed": missed,
+            "calls": calls,
+            "payments_count": pay_cnt,
+            "payments_amount": pay_amt,
+            "avg_duration": {
+                "overall_min": round(float(avg_all) / 60, 1),
+                "per_agent": [
+                    {"agent": n, "min": round(float(a) / 60, 1)}
+                    for n, a in per_agent_rows
+                ],
+            },
         }
 
     async def calls_trend(self, tenant_id: str | None, days: int = 7) -> dict:
@@ -370,13 +501,13 @@ class DashboardService:
         انجام می‌شود؛ هیچ رکورد خامی به اپلیکیشن منتقل نمی‌شود.
         """
         start = _start_of_today() - timedelta(days=months * 31)
-        month_col = func.to_char(Call.started_at, "YYYY-MM").label("month")
-
-        # تجمیع تماس‌ها به تفکیک کارشناس + ماه
+        # ماهِ مالی شمسی (۱۱ تا ۱۰) در SQL قابل محاسبه نیست؛ پس به تفکیکِ روز
+        # تجمیع می‌کنیم و در پایتون هر روز را به ماهِ مالیِ خودش می‌بریم.
+        day_col = func.date(Call.started_at).label("day")
         call_rows = await self._s.execute(
             select(
                 Call.agent_id.label("agent_id"),
-                month_col,
+                day_col,
                 func.count(Call.id).label("calls"),
                 func.coalesce(func.sum(Call.duration_sec), 0).label("sec"),
                 func.coalesce(
@@ -387,7 +518,7 @@ class DashboardService:
                 ).label("followups"),
             )
             .where(Call.started_at >= start, Call.agent_id.isnot(None))
-            .group_by(Call.agent_id, month_col)
+            .group_by(Call.agent_id, day_col)
         )
 
         # نام کارشناسان (یک کوئری، نه N کوئری)
@@ -396,39 +527,50 @@ class DashboardService:
         )
         names = {u.id: u.full_name for u in user_rows}
 
-        # ساختار: agent_id → { month → metrics }
+        # ساختار: agent_id → { fiscal_key → جمعِ شاخص‌ها }؛ key→label برای نمایش
         agents: dict = {}
+        key_label: dict[str, str] = {}
         for r in call_rows:
+            d = r.day if isinstance(r.day, date) else date.fromisoformat(str(r.day))
+            fkey, flabel = fiscal_month(d)
+            key_label[fkey] = flabel
             a = agents.setdefault(
                 r.agent_id,
                 {"id": str(r.agent_id),
                  "full_name": names.get(r.agent_id, "نامشخص"),
-                 "months": {}},
+                 "_acc": {}},
             )
-            a["months"][r.month] = {
-                "calls": int(r.calls),
-                "minutes": round(int(r.sec) / 60, 1),
-                "sales": int(r.sales),
-                "followups": int(r.followups),
-                "score": self._monthly_score(int(r.calls), int(r.sec),
-                                             int(r.sales), int(r.followups)),
-            }
+            acc = a["_acc"].setdefault(
+                fkey, {"calls": 0, "sec": 0, "sales": 0, "followups": 0}
+            )
+            acc["calls"] += int(r.calls)
+            acc["sec"] += int(r.sec)
+            acc["sales"] += int(r.sales)
+            acc["followups"] += int(r.followups)
 
-        # افزودن سطح بر اساس امتیاز و مرتب‌سازی نزولی بر اساس میانگین امتیاز
+        # محاسبه‌ی امتیاز/سطح هر ماهِ مالی و میانگین کارشناس
         result = []
         for a in agents.values():
-            for m in a["months"].values():
-                m["level"] = self._score_level(m["score"])
+            a["months"] = {}
+            for fkey, acc in a.pop("_acc").items():
+                score = self._monthly_score(acc["calls"], acc["sec"],
+                                            acc["sales"], acc["followups"])
+                a["months"][key_label[fkey]] = {
+                    "calls": acc["calls"],
+                    "minutes": round(acc["sec"] / 60, 1),
+                    "sales": acc["sales"],
+                    "followups": acc["followups"],
+                    "score": score,
+                    "level": self._score_level(score),
+                }
             scores = [m["score"] for m in a["months"].values()]
             a["avg_score"] = round(sum(scores) / len(scores), 1) if scores else 0.0
             a["level"] = self._score_level(a["avg_score"])
             result.append(a)
         result.sort(key=lambda x: x["avg_score"], reverse=True)
 
-        # فهرست ماه‌های موجود (برای ستون‌های جدول در فرانت)، نزولی
-        all_months = sorted(
-            {m for a in result for m in a["months"].keys()}, reverse=True
-        )
+        # ستون‌های ماه (برچسبِ شمسی) مرتب‌شده بر اساس کلیدِ تاریخی، نزولی
+        all_months = [key_label[k] for k in sorted(key_label.keys(), reverse=True)]
         return {"agents": result, "months": all_months}
 
     @staticmethod

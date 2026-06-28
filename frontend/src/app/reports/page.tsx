@@ -1,10 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
+} from "recharts";
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
-import { faNum } from "@/lib/utils";
+import { faNum, faDateTime } from "@/lib/utils";
 import { getSession, isManager } from "@/lib/auth";
 import { ExportButton } from "@/components/ExportButton";
 import { exportToExcel } from "@/lib/exportExcel";
@@ -21,7 +24,45 @@ import {
   Lock,
   Award,
   FileSpreadsheet,
+  MessageSquare,
+  AlertTriangle,
 } from "lucide-react";
+
+const CHANNEL_FA: Record<string, string> = {
+  sms: "پیامک", whatsapp: "واتساپ", telegram: "تلگرام",
+};
+
+type CommMessage = {
+  id: string; student_name: string | null; mobile: string | null;
+  channel: string; body: string; status: string; date: string;
+};
+type IncompleteStudent = {
+  id: string; full_name: string | null; mobile: string | null; missing: string[];
+};
+type TimelineItem = {
+  id: string; student_name: string | null; mobile: string | null; product: string;
+  arrived_at: string | null; first_call_at: string | null; sold_at: string | null;
+  calls_to_purchase: number; days_to_purchase: number | null;
+  days_from_first_call: number | null;
+};
+type HourlyStats = {
+  hours: number[];
+  answered: number[];
+  missed: number[];
+  calls: number[];
+  payments_count: number[];
+  payments_amount: number[];
+  avg_duration: { overall_min: number; per_agent: { agent: string; min: number }[] };
+};
+
+/** ساعتِ اوج یک آرایه‌ی ۲۴تایی را به‌صورت «۱۶ تا ۱۷» برمی‌گرداند. */
+function peakHour(arr?: number[]): string {
+  if (!arr || arr.length === 0) return "—";
+  let bi = 0;
+  for (let i = 1; i < arr.length; i++) if (arr[i] > arr[bi]) bi = i;
+  if (arr[bi] === 0) return "—";
+  return `${faNum(bi)} تا ${faNum(bi + 1)}`;
+}
 
 type DailyReport = {
   date: string;
@@ -129,6 +170,58 @@ export default function ReportsPage() {
     queryFn: async () => (await api.get("/dashboard/monthly-performance")).data,
     enabled,
   });
+
+  // بازه‌ی تاریخ برای گزارش ارتباطات (خالی = همه)
+  const [commFrom, setCommFrom] = useState("");
+  const [commTo, setCommTo] = useState("");
+  const { data: comms } = useQuery<{ items: CommMessage[] }>({
+    queryKey: ["messages", commFrom, commTo],
+    queryFn: async () => {
+      const qs = new URLSearchParams();
+      if (commFrom) qs.set("date_from", commFrom);
+      if (commTo) qs.set("date_to", commTo);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      return (await api.get(`/messages${suffix}`)).data;
+    },
+    enabled,
+  });
+  const { data: incomplete } = useQuery<{ items: IncompleteStudent[] }>({
+    queryKey: ["students-incomplete"],
+    queryFn: async () => (await api.get("/students/incomplete")).data,
+    enabled,
+  });
+  const { data: timeline } = useQuery<{ items: TimelineItem[] }>({
+    queryKey: ["sales-timeline"],
+    queryFn: async () => (await api.get("/sales/timeline")).data,
+    enabled,
+  });
+  const commItems = comms?.items ?? [];
+  const incompleteItems = incomplete?.items ?? [];
+  const timelineItems = timeline?.items ?? [];
+
+  // آمار ساعتی (کلی یا تفکیک نیرو)
+  const [hourAgent, setHourAgent] = useState("");
+  const { data: hourly } = useQuery<HourlyStats>({
+    queryKey: ["hourly", hourAgent],
+    queryFn: async () => {
+      const suffix = hourAgent ? `?agent=${hourAgent}` : "";
+      return (await api.get(`/dashboard/hourly${suffix}`)).data;
+    },
+    enabled,
+  });
+  const hourlyRows = useMemo(() => {
+    const h = hourly?.hours ?? [];
+    return h.map((hr, i) => ({
+      hour: faNum(hr),
+      پاسخ: hourly?.answered?.[i] ?? 0,
+      بی‌پاسخ: hourly?.missed?.[i] ?? 0,
+      تماس: hourly?.calls?.[i] ?? 0,
+      واریز: hourly?.payments_count?.[i] ?? 0,
+    }));
+  }, [hourly]);
+  const agentDurationRows = (hourly?.avg_duration?.per_agent ?? []).map((a) => ({
+    agent: a.agent, دقیقه: a.min,
+  }));
 
   // کارشناس فروش: پیام عدم دسترسی به‌جای جدول خالی.
   if (allowed === false) {
@@ -413,6 +506,272 @@ export default function ReportsPage() {
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
               <Award size={36} className="opacity-40" />
               <p className="text-sm">هنوز داده‌ای برای عملکرد ماهانه ثبت نشده است.</p>
+            </div>
+          )}
+        </div>
+
+        {/* آمار ساعتی + نمودارها */}
+        <div className="mt-6 rounded-2xl border border-sky-100 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="text-sky-500" size={20} />
+              <span className="font-bold text-slate-800">آمار ساعتی</span>
+              <span className="hidden text-xs text-slate-400 sm:inline">(به وقت تهران · کلی یا تفکیک نیرو)</span>
+            </div>
+            <select
+              value={hourAgent}
+              onChange={(e) => setHourAgent(e.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-sky-400"
+            >
+              <option value="">همه‌ی نیروها (کلی)</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.full_name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* تیترهای کلیدی */}
+          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="rounded-xl bg-emerald-50 p-3">
+              <div className="text-xs text-emerald-600">بیشترین واریز در ساعت</div>
+              <div className="text-lg font-extrabold text-emerald-700">{peakHour(hourly?.payments_amount)}</div>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-3">
+              <div className="text-xs text-blue-600">بیشترین پاسخ‌دهی در ساعت</div>
+              <div className="text-lg font-extrabold text-blue-700">{peakHour(hourly?.answered)}</div>
+            </div>
+            <div className="rounded-xl bg-rose-50 p-3">
+              <div className="text-xs text-rose-600">بیشترین بی‌پاسخ در ساعت</div>
+              <div className="text-lg font-extrabold text-rose-700">{peakHour(hourly?.missed)}</div>
+            </div>
+            <div className="rounded-xl bg-violet-50 p-3">
+              <div className="text-xs text-violet-600">میانگین مکالمه (دقیقه)</div>
+              <div className="text-lg font-extrabold text-violet-700">{faNum(hourly?.avg_duration?.overall_min ?? 0)}</div>
+            </div>
+          </div>
+
+          {/* نمودار تماس‌ها بر اساس ساعت */}
+          <div className="mb-2 text-sm font-semibold text-slate-600">تماس‌ها بر اساس ساعت (پاسخ / بی‌پاسخ)</div>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={hourlyRows}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+              <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="پاسخ" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="بی‌پاسخ" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* نمودار واریز بر اساس ساعت */}
+          <div className="mb-2 mt-5 text-sm font-semibold text-slate-600">تعداد واریز بر اساس ساعت</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={hourlyRows}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+              <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="واریز" fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* میانگین مکالمه‌ی نیروها (فقط در نمای کلی) */}
+          {!hourAgent && agentDurationRows.length > 0 && (
+            <>
+              <div className="mb-2 mt-5 text-sm font-semibold text-slate-600">میانگین مدت مکالمه‌ی هر نیرو (دقیقه)</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={agentDurationRows} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="agent" tick={{ fontSize: 11 }} width={90} />
+                  <Tooltip />
+                  <Bar dataKey="دقیقه" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          )}
+        </div>
+
+        {/* گزارش ارتباطات: چه پیامی در چه بازه‌ای برای چه کسی ارسال شده */}
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-violet-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-4">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="text-violet-500" size={20} />
+              <span className="font-bold text-slate-800">گزارش ارتباطات</span>
+              <span className="hidden text-xs text-slate-400 sm:inline">(پیام‌های ارسالی)</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs text-slate-500">از</label>
+              <input type="date" value={commFrom} onChange={(e) => setCommFrom(e.target.value)}
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-violet-400" dir="ltr" />
+              <label className="text-xs text-slate-500">تا</label>
+              <input type="date" value={commTo} onChange={(e) => setCommTo(e.target.value)}
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-violet-400" dir="ltr" />
+              <ExportButton
+                rows={commItems.map((m) => ({ ...m, channel_fa: CHANNEL_FA[m.channel] ?? m.channel, date_fa: faDateTime(m.date) }))}
+                columns={[
+                  { key: "student_name", label: "نام" },
+                  { key: "mobile", label: "موبایل" },
+                  { key: "channel_fa", label: "کانال" },
+                  { key: "body", label: "متن پیام" },
+                  { key: "status", label: "وضعیت" },
+                  { key: "date_fa", label: "تاریخ" },
+                ]}
+                filename="گزارش-ارتباطات"
+              />
+            </div>
+          </div>
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="p-3 text-right font-medium">نام</th>
+                <th className="p-3 text-right font-medium">موبایل</th>
+                <th className="p-3 text-center font-medium">کانال</th>
+                <th className="p-3 text-right font-medium">متن پیام</th>
+                <th className="p-3 text-right font-medium">تاریخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {commItems.map((m, i) => (
+                <tr key={m.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                  <td className="p-3 font-medium text-slate-700">{m.student_name ?? "—"}</td>
+                  <td className="p-3 text-slate-500" dir="ltr">{m.mobile ?? "—"}</td>
+                  <td className="p-3 text-center">
+                    <span className="inline-flex rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-600">
+                      {CHANNEL_FA[m.channel] ?? m.channel}
+                    </span>
+                  </td>
+                  <td className="p-3 text-slate-600">{m.body}</td>
+                  <td className="p-3 text-slate-400">{faDateTime(m.date)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {commItems.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
+              <MessageSquare size={36} className="opacity-40" />
+              <p className="text-sm">در این بازه پیامی ثبت نشده است.</p>
+            </div>
+          )}
+        </div>
+
+        {/* گزارش اطلاعات ناقص */}
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-rose-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="text-rose-500" size={20} />
+              <span className="font-bold text-slate-800">اطلاعات ناقص</span>
+              <span className="hidden text-xs text-slate-400 sm:inline">(چه کسی چه چیزی کم دارد)</span>
+            </div>
+            <ExportButton
+              rows={incompleteItems.map((s) => ({ ...s, missing_str: s.missing.join("، ") }))}
+              columns={[
+                { key: "full_name", label: "نام" },
+                { key: "mobile", label: "موبایل" },
+                { key: "missing_str", label: "موارد ناقص" },
+              ]}
+              filename="اطلاعات-ناقص"
+            />
+          </div>
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="p-3 text-right font-medium">نام</th>
+                <th className="p-3 text-right font-medium">موبایل</th>
+                <th className="p-3 text-right font-medium">موارد ناقص</th>
+              </tr>
+            </thead>
+            <tbody>
+              {incompleteItems.map((s, i) => (
+                <tr key={s.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                  <td className="p-3 font-medium text-slate-700">{s.full_name ?? "—"}</td>
+                  <td className="p-3 text-slate-500" dir="ltr">{s.mobile ?? "—"}</td>
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {s.missing.map((m) => (
+                        <span key={m} className="rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-600 ring-1 ring-rose-100">
+                          {m}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {incompleteItems.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
+              <CheckCircle2 size={36} className="opacity-40" />
+              <p className="text-sm">اطلاعات همه کامل است. 👌</p>
+            </div>
+          )}
+        </div>
+
+        {/* تایم‌لاین ورود → تماس → خرید */}
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-emerald-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-4">
+            <div className="flex items-center gap-2">
+              <Clock className="text-emerald-500" size={20} />
+              <span className="font-bold text-slate-800">تایم‌لاین خرید</span>
+              <span className="hidden text-xs text-slate-400 sm:inline">(از ورود تا خرید: چند تماس و چند روز)</span>
+            </div>
+            <ExportButton
+              rows={timelineItems.map((t) => ({
+                ...t,
+                arrived_fa: faDateTime(t.arrived_at ?? undefined),
+                first_call_fa: faDateTime(t.first_call_at ?? undefined),
+                sold_fa: faDateTime(t.sold_at ?? undefined),
+              }))}
+              columns={[
+                { key: "student_name", label: "نام" },
+                { key: "product", label: "محصول" },
+                { key: "arrived_fa", label: "تاریخ ورود" },
+                { key: "first_call_fa", label: "اولین تماس" },
+                { key: "sold_fa", label: "تاریخ خرید" },
+                { key: "calls_to_purchase", label: "تعداد تماس تا خرید" },
+                { key: "days_to_purchase", label: "روز تا خرید (از ورود)" },
+                { key: "days_from_first_call", label: "روز از اولین تماس" },
+              ]}
+              filename="تایم‌لاین-خرید"
+            />
+          </div>
+          <table className="w-full min-w-[860px] text-sm">
+            <thead className="bg-gradient-to-l from-emerald-50 to-green-50 text-slate-600">
+              <tr>
+                <th className="p-3 text-right font-medium">نام</th>
+                <th className="p-3 text-right font-medium">محصول</th>
+                <th className="p-3 text-center font-medium">ورود</th>
+                <th className="p-3 text-center font-medium">اولین تماس</th>
+                <th className="p-3 text-center font-medium">خرید</th>
+                <th className="p-3 text-center font-medium">تعداد تماس</th>
+                <th className="p-3 text-center font-medium">روز تا خرید</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timelineItems.map((t, i) => (
+                <tr key={t.id} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                  <td className="p-3 font-medium text-slate-700">{t.student_name ?? "—"}</td>
+                  <td className="p-3 text-slate-600">{t.product}</td>
+                  <td className="p-3 text-center text-slate-500">{faDateTime(t.arrived_at ?? undefined)}</td>
+                  <td className="p-3 text-center text-slate-500">{faDateTime(t.first_call_at ?? undefined)}</td>
+                  <td className="p-3 text-center font-medium text-emerald-600">{faDateTime(t.sold_at ?? undefined)}</td>
+                  <td className="p-3 text-center">
+                    <span className="inline-flex min-w-[2rem] justify-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-600">
+                      {faNum(t.calls_to_purchase)}
+                    </span>
+                  </td>
+                  <td className="p-3 text-center font-bold text-slate-700">
+                    {t.days_to_purchase != null ? `${faNum(t.days_to_purchase)} روز` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {timelineItems.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
+              <Clock size={36} className="opacity-40" />
+              <p className="text-sm">هنوز خریدی برای نمایش تایم‌لاین ثبت نشده است.</p>
             </div>
           )}
         </div>

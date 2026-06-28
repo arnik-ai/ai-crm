@@ -164,6 +164,8 @@ export const demoSales = {
     { id: "s5", student_name: "نگار رضایی", mobile: "+989125550055", date: "2026-06-10T10:00:00Z", product: "شبیه ساز", program_months: null, amount: 12_000_000, payment: "اقساط", payment_ref: null, renewal_due: null },
   ],
   total_amount: 51_000_000,
+  total_program: 24_700_000,
+  total_other: 26_300_000,
   count: 5,
 };
 
@@ -241,6 +243,11 @@ export const demoTasks = {
   missed_calls: [
     { id: "m1", student_name: "محمد کریمی", mobile: "+989127776655", started_at: "2026-06-23T08:40:00Z" },
   ],
+  renewal_reminders: [
+    { id: "r1", student_name: "زهرا حسینی", mobile: "+989121110011", renewal_due_at: "2026-06-24T10:00:00Z", program_months: 3 },
+    { id: "r2", student_name: "رضا حسینی", mobile: "+989124440044", renewal_due_at: "2026-06-26T10:00:00Z", program_months: 3 },
+    { id: "r3", student_name: "مریم ابراهیمی", mobile: "+989121234511", renewal_due_at: "2026-06-29T10:00:00Z", program_months: 6 },
+  ],
 };
 
 // کاربران سیستم (اعضای تیم) — برای پنل مدیریت کاربران
@@ -251,6 +258,68 @@ export const demoUsers = [
   { id: "u4", full_name: "فاطمه احمدی", mobile: "+989123333333", email: "989123333333@otp.local", is_active: true, roles: ["sales_agent"] },
   { id: "u5", full_name: "علی موسوی", mobile: "+989124444444", email: "989124444444@otp.local", is_active: false, roles: ["sales_agent"] },
 ];
+
+// گزارش ارتباطات (پیام‌های ارسالی) — برای صفحه‌ی گزارش‌ها
+export const demoMessages = {
+  items: [
+    { id: "msg1", student_name: "سارا محمدی", mobile: "+989121234567", channel: "sms", body: "سلام، طرح اقساطی جهش براتون فعال شد.", status: "sent", date: "2026-06-23T12:10:00Z" },
+    { id: "msg2", student_name: "نگار حسینی", mobile: "+989019998877", channel: "whatsapp", body: "فایل معرفی بسته دندان‌پزشکی خدمتتون ارسال شد.", status: "sent", date: "2026-06-23T10:05:00Z" },
+    { id: "msg3", student_name: "علی رضایی", mobile: "+989352223344", channel: "telegram", body: "لینک پرداخت برنامه ۶ ماهه.", status: "sent", date: "2026-06-22T16:40:00Z" },
+    { id: "msg4", student_name: "محمد کریمی", mobile: "+989127776655", channel: "sms", body: "یادآوری مشاوره فردا ساعت ۱۰.", status: "sent", date: "2026-06-22T09:00:00Z" },
+  ],
+  total: 4,
+};
+
+// گزارش اطلاعات ناقص — چه فردی چه چیزی کم دارد
+export const demoIncomplete = {
+  items: [
+    { id: "1", full_name: "سارا محمدی", mobile: "+989121234567", missing: ["معدل", "هدف", "پیامک سامانه‌ای"] },
+    { id: "2", full_name: "علی رضایی", mobile: "+989352223344", missing: ["معدل", "توضیحات"] },
+    { id: "4", full_name: "محمد کریمی", mobile: "+989127776655", missing: ["رشته", "پایه", "معدل", "هدف", "پیام واتساپ/تلگرام", "توضیحات"] },
+    { id: "6", full_name: null, mobile: "+989365557788", missing: ["نام و نام خانوادگی", "رشته", "پایه", "معدل", "هدف", "پیامک سامانه‌ای", "پیام واتساپ/تلگرام", "توضیحات"] },
+  ],
+  count: 4,
+};
+
+// آمار ساعتی (به وقت تهران) — برای نمودارهای صفحه‌ی گزارش‌ها
+export const demoHourly = {
+  hours: Array.from({ length: 24 }, (_, h) => h),
+  // بیشترین پاسخ‌دهی ۱۱ تا ۱۳
+  answered: [0, 0, 0, 0, 0, 0, 0, 2, 6, 14, 22, 31, 34, 29, 21, 18, 16, 12, 8, 5, 3, 1, 0, 0],
+  // بیشترین بی‌پاسخ ۱۴ تا ۱۵
+  missed: [0, 0, 0, 0, 0, 0, 1, 2, 4, 6, 8, 9, 7, 10, 18, 16, 9, 7, 5, 4, 2, 1, 0, 0],
+  calls: [0, 0, 0, 0, 0, 0, 1, 4, 10, 20, 30, 40, 41, 39, 39, 34, 25, 19, 13, 9, 5, 2, 0, 0],
+  payments_count: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 3, 5, 6, 7, 11, 9, 5, 3, 2, 1, 0, 0],
+  payments_amount: [0, 0, 0, 0, 0, 0, 0, 0, 4, 9, 12, 18, 14, 22, 26, 31, 48, 38, 21, 13, 8, 4, 0, 0]
+    .map((m) => m * 1_000_000),
+  avg_duration: {
+    overall_min: 4.2,
+    per_agent: [
+      { agent: "مریم رضایی", min: 5.1 },
+      { agent: "حسین کریمی", min: 3.8 },
+      { agent: "فاطمه احمدی", min: 4.0 },
+      { agent: "علی موسوی", min: 2.6 },
+    ],
+  },
+};
+
+// تایم‌لاین ورود→تماس→خرید
+export const demoTimeline = {
+  items: [
+    { id: "t1", student_name: "مریم ابراهیمی", mobile: "+989121110011", product: "برنامه", arrived_at: "2026-06-10T09:00:00Z", first_call_at: "2026-06-11T10:00:00Z", sold_at: "2026-06-17T10:00:00Z", calls_to_purchase: 4, days_to_purchase: 7, days_from_first_call: 6 },
+    { id: "t2", student_name: "علی محمدی", mobile: "+989122220022", product: "جهش", arrived_at: "2026-06-12T09:00:00Z", first_call_at: "2026-06-12T15:00:00Z", sold_at: "2026-06-15T10:00:00Z", calls_to_purchase: 2, days_to_purchase: 3, days_from_first_call: 3 },
+    { id: "t3", student_name: "زهرا کریمی", mobile: "+989123330033", product: "بمب دوازدهم", arrived_at: "2026-06-13T09:00:00Z", first_call_at: "2026-06-14T11:00:00Z", sold_at: "2026-06-14T16:00:00Z", calls_to_purchase: 1, days_to_purchase: 1, days_from_first_call: 0 },
+    { id: "t4", student_name: "رضا حسینی", mobile: "+989124440044", product: "برنامه", arrived_at: "2026-06-01T09:00:00Z", first_call_at: "2026-06-03T10:00:00Z", sold_at: "2026-06-12T10:00:00Z", calls_to_purchase: 6, days_to_purchase: 11, days_from_first_call: 9 },
+  ],
+};
+
+// تماس‌های اقدام‌شده بدون تعیین تماس بعدی (برای یادآور دوره‌ای)
+export const demoMissingNextCall = {
+  items: [
+    { id: "n1", student_name: "زهرا حسینی", mobile: "+989121110011" },
+    { id: "n2", student_name: "علی رضایی", mobile: "+989352223344" },
+  ],
+};
 
 /** نگاشت مسیر API → داده‌ی دموی متناظر. */
 export const demoByPath: Record<string, unknown> = {
@@ -269,4 +338,9 @@ export const demoByPath: Record<string, unknown> = {
   "/sales/meta": demoSalesMeta,
   "/followups": demoFollowups,
   "/users": demoUsers,
+  "/messages": demoMessages,
+  "/students/incomplete": demoIncomplete,
+  "/dashboard/hourly": demoHourly,
+  "/sales/timeline": demoTimeline,
+  "/dashboard/missing-next-call": demoMissingNextCall,
 };

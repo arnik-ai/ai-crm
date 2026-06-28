@@ -2,14 +2,19 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { isDemoMode } from "@/lib/auth";
 import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
+import { ContactLinks } from "@/components/ContactLinks";
 import { ScoreLegend } from "@/components/ScoreLegend";
 import { BackButton } from "@/components/BackButton";
 import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
-import { Search, Users, GraduationCap, Phone } from "lucide-react";
+import { faNum } from "@/lib/utils";
+import { Search, Users, GraduationCap, Phone, MessageSquare, X, Loader2, Send } from "lucide-react";
+
+const DEMO = isDemoMode();
 
 type Student = {
   id: string;
@@ -19,6 +24,7 @@ type Student = {
   course?: string;
   grade?: string;
   goal?: string;
+  gpa?: number | null;
   city?: string;
   lead_source?: string;
   call_count?: number;
@@ -26,6 +32,20 @@ type Student = {
   stage?: string;
   last_call?: string;
 };
+
+/** کانال‌های پیام برای مودال ارسال پیام. */
+const MSG_CHANNELS = [
+  { v: "sms", label: "پیامک سامانه‌ای" },
+  { v: "whatsapp", label: "واتساپ" },
+  { v: "telegram", label: "تلگرام" },
+];
+
+/** شماره به ارقام بین‌المللی بدون + (۰ ابتدایی → ۹۸) برای لینک پیام‌رسان. */
+function toIntl(mobile: string): string {
+  let d = mobile.replace(/\D/g, "");
+  if (d.startsWith("0")) d = "98" + d.slice(1);
+  return d;
+}
 
 /** نشان رنگی رشته‌ی تحصیلی: تجربی / ریاضی / انسانی. */
 function FieldBadge({ field }: { field?: string }) {
@@ -112,6 +132,7 @@ const EXCEL_COLUMNS: ExcelColumn<Student>[] = [
   { key: "course", label: "رشته" },
   { key: "grade", label: "پایه" },
   { key: "goal", label: "هدف" },
+  { key: "gpa", label: "معدل", format: (s) => s.gpa ?? "" },
   { key: "lead_source", label: "منبع تماس" },
   { key: "call_count", label: "تعداد تماس" },
   { key: "lead_score", label: "امتیاز" },
@@ -127,6 +148,8 @@ export default function StudentsPage() {
 
   const [q, setQ] = useState("");
   const [field, setField] = useState("همه");
+  // دانشجویی که مودال ارسال پیام برایش باز است
+  const [msgStudent, setMsgStudent] = useState<Student | null>(null);
 
   const items: Student[] = useMemo(() => {
     let list: Student[] = data?.items ?? [];
@@ -204,6 +227,7 @@ export default function StudentsPage() {
                 <th className="p-3.5 text-right font-medium">رشته</th>
                 <th className="p-3.5 text-right font-medium">پایه</th>
                 <th className="p-3.5 text-right font-medium">هدف</th>
+                <th className="p-3.5 text-center font-medium">معدل</th>
                 <th className="p-3.5 text-right font-medium">منبع</th>
                 <th className="p-3.5 text-center font-medium">امتیاز</th>
                 <th className="p-3.5 text-right font-medium">مرحله</th>
@@ -240,6 +264,9 @@ export default function StudentsPage() {
                   <td className="p-3.5"><FieldBadge field={s.course} /></td>
                   <td className="p-3.5 text-slate-600">{s.grade ?? "—"}</td>
                   <td className="p-3.5 text-slate-500">{s.goal ?? "—"}</td>
+                  <td className="p-3.5 text-center text-slate-600">
+                    {s.gpa != null ? faNum(s.gpa) : <span className="text-rose-400" title="معدل ثبت نشده">—</span>}
+                  </td>
                   <td className="p-3.5"><SourceBadge source={s.lead_source} /></td>
                   <td className="p-3.5 text-center"><ScoreBadge score={s.lead_score} /></td>
                   <td className="p-3.5"><StageBadge stage={s.stage} /></td>
@@ -251,8 +278,18 @@ export default function StudentsPage() {
                       <Phone size={12} /> {s.call_count ?? 0}
                     </span>
                   </td>
-                  <td className="p-3.5 text-center">
-                    <CallButton mobile={s.mobile} size="sm" />
+                  <td className="p-3.5">
+                    <div className="flex items-center justify-center gap-2">
+                      <CallButton mobile={s.mobile} size="sm" />
+                      <ContactLinks mobile={s.mobile} />
+                      <button
+                        onClick={() => setMsgStudent(s)}
+                        title="ارسال پیام"
+                        className="inline-flex items-center justify-center rounded-lg bg-violet-50 p-1.5 text-violet-600 transition hover:bg-violet-100"
+                      >
+                        <MessageSquare size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -267,7 +304,124 @@ export default function StudentsPage() {
             </div>
           )}
         </div>
+
+        {msgStudent && (
+          <MessageModal student={msgStudent} onClose={() => setMsgStudent(null)} />
+        )}
       </main>
+    </div>
+  );
+}
+
+/* ---------- مودال ارسال پیام (پیامک/واتساپ/تلگرام، متن آزاد) ---------- */
+function MessageModal({ student, onClose }: { student: Student; onClose: () => void }) {
+  const [channel, setChannel] = useState("sms");
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim()) {
+      setMsg("متن پیام را بنویسید.");
+      return;
+    }
+    setMsg("");
+    setLoading(true);
+    try {
+      // ثبت پیام در سرور (در دمو ذخیره نمی‌شود)
+      if (!DEMO) {
+        await api.post("/messages", {
+          mobile: student.mobile, channel, body: text,
+          student_id: student.id,
+        });
+      }
+      // واتساپ/تلگرام: باز کردن پیام‌رسان با متن آماده
+      const intl = toIntl(student.mobile);
+      if (channel === "whatsapp") {
+        window.open(`https://wa.me/${intl}?text=${encodeURIComponent(text)}`, "_blank");
+      } else if (channel === "telegram") {
+        window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(text)}`, "_blank");
+      }
+      setMsg(DEMO ? "در حالت نمایشی ثبت نشد (پیام‌رسان باز شد)." : "پیام ثبت شد ✓");
+      if (!DEMO && channel === "sms") onClose();
+    } catch {
+      setMsg("ارسال ناموفق بود.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <MessageSquare size={18} className="text-violet-600" /> ارسال پیام
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <p className="mb-4 text-sm text-slate-500">
+          {student.full_name ?? "ناشناس"} · <span dir="ltr">{student.mobile}</span>
+        </p>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {MSG_CHANNELS.map((c) => (
+              <button
+                key={c.v}
+                type="button"
+                onClick={() => setChannel(c.v)}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                  channel === c.v
+                    ? "bg-violet-500 text-white shadow-sm shadow-violet-200"
+                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={4}
+            placeholder="متن پیام را آزادانه بنویسید…"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-violet-400"
+          />
+
+          <div className="flex items-center justify-end gap-2">
+            {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            >
+              بستن
+            </button>
+            <button
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 disabled:opacity-60"
+            >
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+              {channel === "sms" ? "ارسال پیامک" : "باز کردن و ثبت"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
