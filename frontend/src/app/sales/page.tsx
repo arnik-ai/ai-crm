@@ -150,15 +150,8 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* کارت‌های خلاصه */}
-        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-            <Wallet className="text-emerald-500" size={26} />
-            <div>
-              <div className="text-2xl font-extrabold text-slate-800">{amountMillions(totalAmount)}</div>
-              <div className="text-xs text-slate-500">مجموع کل فروش</div>
-            </div>
-          </div>
+        {/* کارت‌های خلاصه — جمعِ هر دسته جدا (بدون مجموع کل) */}
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
             <CalendarRange className="text-indigo-500" size={26} />
             <div>
