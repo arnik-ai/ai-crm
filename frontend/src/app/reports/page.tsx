@@ -10,6 +10,7 @@ import { BackButton } from "@/components/BackButton";
 import { faNum, faDateTime, faDate, faDigits } from "@/lib/utils";
 import { getSession, isManager } from "@/lib/auth";
 import { ExportButton } from "@/components/ExportButton";
+import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import { exportToExcel } from "@/lib/exportExcel";
 import {
   BarChart3,
@@ -649,11 +650,9 @@ export default function ReportsPage() {
                 />
               </div>
               <label className="text-xs text-slate-500">از</label>
-              <input type="date" value={commFrom} onChange={(e) => setCommFrom(e.target.value)}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-violet-400" dir="ltr" />
+              <JalaliDatePicker value={commFrom} onChange={setCommFrom} placeholder="از تاریخ" />
               <label className="text-xs text-slate-500">تا</label>
-              <input type="date" value={commTo} onChange={(e) => setCommTo(e.target.value)}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-violet-400" dir="ltr" />
+              <JalaliDatePicker value={commTo} onChange={setCommTo} placeholder="تا تاریخ" />
               <ExportButton
                 rows={commItems.map((m) => ({ ...m, channel_fa: CHANNEL_FA[m.channel] ?? m.channel, date_fa: faDateTime(m.date) }))}
                 columns={[
