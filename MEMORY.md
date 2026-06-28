@@ -164,6 +164,15 @@ docs/     → ۱۲ سند معماری فارسی
       `POST outcome=purchased`. ⚠️ در `dashboard_service` هرجا `successful` شمرده می‌شد،
       حالا `["successful","purchased"]` است تا خرید هم موفق/فروش حساب شود.
 
+27. **رنگ ورودی + آلارم اطلاعات ناقص + تکمیل دانشجو (commit `fed4776`)** —
+    - 🐞 **«نوشته دیده نمی‌شود»:** رنگِ بدنه روشن (`#e2e8f0`) بود و input/select/textarea
+      رنگِ خود را نداشتند → متنِ تایپی روی فیلدِ سفید نامرئی. در `globals.css` رنگِ متنِ
+      ورودی‌ها مشکی (slate-800) شد (سراسری). ⚠️ الگو: هر فیلدِ ورودی باید رنگِ تیره داشته باشد.
+    - **آلارم «اطلاعات ناقص»** در «کارهای روز» (`IncompleteNag`): هر سرنخِ ناقص + فهرستِ
+      «چه کم دارد» + دکمه‌ی «رفتن به تکمیل».
+    - **فرم ویرایش/تکمیل دانشجو** در صفحه‌ی دانشجویان (`EditStudentModal`، با `PATCH /students`).
+      ناهماهنگیِ `course`(دمو)↔`field`(بک‌اند) با fallbackِ نمایش (`s.course ?? s.field`) رفع شد.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
