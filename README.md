@@ -38,6 +38,7 @@ Workano → Webhook → CRM Backend (FastAPI) → Celery → AvalAI (Whisper/GPT
 | [06-SECURITY](docs/06-SECURITY.md) | معماری امنیت |
 | [07-DEPLOYMENT](docs/07-DEPLOYMENT.md) | استقرار Parspack + CI/CD |
 | [08-ROADMAP](docs/08-ROADMAP.md) | نقشه‌راه و مقیاس‌پذیری ۱۰۰٬۰۰۰+ |
+| [11-CODE-GUIDE](docs/11-CODE-GUIDE.md) | راهنمای مرور کد فایل‌به‌فایل (هر فایل چه‌کار می‌کند) ⭐ |
 
 ## 🗂️ ساختار مخزن
 ```
