@@ -153,6 +153,17 @@ docs/     → ۱۲ سند معماری فارسی
     - **تاریخ فروش** اختیاری (خالی=اکنون) با تقویم شمسی.
     - migration `0006` (idempotent) + schema.sql. هیچ تستی روی sales نبود.
 
+26. **صفحه‌ی تماس‌ها — اطلاعات دانشجو + مودال یکپارچه + خرید→فیش (commit `e0e5565`)** —
+    - لیست تماس کنار امتیاز: پایه/رشته · هدف · معدل · شهر (بک‌اند `CallQueryService.list`
+      حالا با join به Student این‌ها + `student_name` و `outcome` را برمی‌گرداند؛ قبلاً نام هم
+      برنمی‌گشت و در حالت واقعی «ناشناس» می‌شد).
+    - کلیک روی **نام** → مودال یکپارچه: جزئیات ارتباط (خلاصه‌ی AI + سیگنال + متن مکالمه
+      از `GET /calls/{id}`) + تعیین نتیجه.
+    - نتیجه‌ی **«خرید»** (`purchased`): فرم فیش (محصولات چندتایی + اسناد واریز + تاریخ فروش)
+      همان‌جا باز می‌شود؛ با ثبت، اول `POST /sales` (می‌رود تو لیست واریزها) بعد
+      `POST outcome=purchased`. ⚠️ در `dashboard_service` هرجا `successful` شمرده می‌شد،
+      حالا `["successful","purchased"]` است تا خرید هم موفق/فروش حساب شود.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
@@ -190,6 +201,7 @@ BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, Jal
 ## 📜 تاریخچه‌ی Commitها
 
 ```
+e0e5565 تماس‌ها: اطلاعات دانشجو + مودال جزئیات/نتیجه + خرید→فیش
 567e4a7 فیش فروش چندمحصولی + اسناد واریز (sale_items) + تاریخ فروش
 57ab4e3 حذف کارت «مجموع کل فروش» (فقط جمع‌های جدا)
 9574794 برچسب «جمع فروش دوره/برنامه»
