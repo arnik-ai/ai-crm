@@ -26,6 +26,7 @@ import {
   FileSpreadsheet,
   MessageSquare,
   AlertTriangle,
+  Search,
 } from "lucide-react";
 
 const CHANNEL_FA: Record<string, string> = {
@@ -178,9 +179,10 @@ export default function ReportsPage() {
     enabled,
   });
 
-  // بازه‌ی تاریخ برای گزارش ارتباطات (خالی = همه)
+  // بازه‌ی تاریخ + جستجوی شخص برای گزارش ارتباطات (خالی = همه)
   const [commFrom, setCommFrom] = useState("");
   const [commTo, setCommTo] = useState("");
+  const [commQ, setCommQ] = useState("");
   const { data: comms } = useQuery<{ items: CommMessage[] }>({
     queryKey: ["messages", commFrom, commTo],
     queryFn: async () => {
@@ -207,7 +209,17 @@ export default function ReportsPage() {
     queryFn: async () => (await api.get("/sales/repeat-customers")).data,
     enabled,
   });
-  const commItems = comms?.items ?? [];
+  const allCommItems = comms?.items ?? [];
+  // فیلتر سمت کلاینت بر اساس نام یا موبایل (تا «پیام‌های این شخص» دیده شود)
+  const commItems = useMemo(() => {
+    const q = commQ.trim().toLowerCase();
+    if (!q) return allCommItems;
+    return allCommItems.filter(
+      (m) =>
+        (m.student_name ?? "").toLowerCase().includes(q) ||
+        (m.mobile ?? "").toLowerCase().includes(q)
+    );
+  }, [allCommItems, commQ]);
   const incompleteItems = incomplete?.items ?? [];
   const timelineItems = timeline?.items ?? [];
   const repeatItems = repeat?.items ?? [];
@@ -612,9 +624,22 @@ export default function ReportsPage() {
             <div className="flex items-center gap-2">
               <MessageSquare className="text-violet-500" size={20} />
               <span className="font-bold text-slate-800">گزارش ارتباطات</span>
-              <span className="hidden text-xs text-slate-400 sm:inline">(پیام‌های ارسالی)</span>
+              <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-xs font-bold text-violet-600">
+                {faNum(commItems.length)} پیام
+              </span>
+              <span className="hidden text-xs text-slate-400 sm:inline">(چه پیامی در چه بازه‌ای برای چه کسی)</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={commQ}
+                  onChange={(e) => setCommQ(e.target.value)}
+                  placeholder="جستجوی شخص (نام یا موبایل)"
+                  className="w-52 rounded-lg border border-slate-300 py-1.5 pr-8 pl-2 text-sm outline-none focus:border-violet-400"
+                />
+              </div>
               <label className="text-xs text-slate-500">از</label>
               <input type="date" value={commFrom} onChange={(e) => setCommFrom(e.target.value)}
                 className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-violet-400" dir="ltr" />
@@ -664,7 +689,11 @@ export default function ReportsPage() {
           {commItems.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
               <MessageSquare size={36} className="opacity-40" />
-              <p className="text-sm">در این بازه پیامی ثبت نشده است.</p>
+              <p className="text-sm">
+                {commQ.trim()
+                  ? "برای این شخص در این بازه پیامی یافت نشد."
+                  : "در این بازه پیامی ثبت نشده است."}
+              </p>
             </div>
           )}
         </div>
