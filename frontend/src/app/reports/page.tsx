@@ -159,9 +159,12 @@ export default function ReportsPage() {
 
   const enabled = allowed === true;
 
+  // روزِ گزارش روزانه (خالی = امروز) — انتخابِ شمسی
+  const [repDate, setRepDate] = useState("");
   const { data: rep } = useQuery<DailyReport>({
-    queryKey: ["daily-report"],
-    queryFn: async () => (await api.get("/dashboard/daily-report")).data,
+    queryKey: ["daily-report", repDate],
+    queryFn: async () =>
+      (await api.get(`/dashboard/daily-report${repDate ? `?date=${repDate}` : ""}`)).data,
     enabled,
   });
   const { data: team } = useQuery({
@@ -297,7 +300,11 @@ export default function ReportsPage() {
               </p>
             </div>
           </div>
-          <BackButton dark />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-300">روزِ گزارش:</span>
+            <JalaliDatePicker value={repDate} onChange={setRepDate} placeholder="امروز" />
+            <BackButton dark />
+          </div>
         </div>
 
         {/* کارت‌های گزارش روز */}
