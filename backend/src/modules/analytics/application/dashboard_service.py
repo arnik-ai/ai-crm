@@ -342,7 +342,7 @@ class DashboardService:
             .outerjoin(Student, Student.id == Call.student_id)
             .where(Call.started_at >= today,
                    Call.outcome.is_not(None),
-                   Call.outcome != "successful",
+                   Call.outcome.notin_(["successful", "purchased"]),
                    Call.status != "missed",
                    ~future_fu, *scope)
             .order_by(Call.started_at.desc())
@@ -506,7 +506,7 @@ class DashboardService:
         outbound = await _count(Call.direction == "outbound")
         missed = await _count(Call.status == "missed")
         # نتیجه‌ی فروشِ دستی (فیلد outcome)
-        successful = await _count(Call.outcome == "successful")
+        successful = await _count(Call.outcome.in_(["successful", "purchased"]))
         unsuccessful = await _count(Call.outcome == "unsuccessful")
         busy = await _count(Call.outcome == "busy")
         follow_up = await _count(Call.outcome == "follow_up")
@@ -550,7 +550,7 @@ class DashboardService:
                 func.count(Call.id).label("calls"),
                 func.coalesce(func.sum(Call.duration_sec), 0).label("sec"),
                 func.coalesce(
-                    func.sum(case((Call.outcome == "successful", 1), else_=0)), 0
+                    func.sum(case((Call.outcome.in_(["successful", "purchased"]), 1), else_=0)), 0
                 ).label("sales"),
                 func.coalesce(
                     func.sum(case((Call.outcome == "follow_up", 1), else_=0)), 0
@@ -647,7 +647,7 @@ class DashboardService:
                 day_col,
                 func.count(Call.id).label("total"),
                 func.coalesce(
-                    func.sum(case((Call.outcome == "successful", 1), else_=0)), 0
+                    func.sum(case((Call.outcome.in_(["successful", "purchased"]), 1), else_=0)), 0
                 ).label("successful"),
                 func.coalesce(
                     func.sum(case((Call.outcome == "busy", 1), else_=0)), 0

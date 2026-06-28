@@ -9,7 +9,7 @@ import { BackButton } from "@/components/BackButton";
 import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
-import { faDuration, faDateTime } from "@/lib/utils";
+import { faDuration, faDateTime, faNum } from "@/lib/utils";
 import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import {
   PhoneIncoming,
@@ -25,13 +25,18 @@ import {
   ClipboardCheck,
   X,
   Loader2,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 const DEMO = isDemoMode();
 
-/** گزینه‌های نتیجه‌ی تماس (مطابق وضعیت‌های فروش). */
+const PROGRAM = "برنامه";
+
+/** گزینه‌های نتیجه‌ی تماس (مطابق وضعیت‌های فروش). «خرید» فیش فروش می‌سازد. */
 const OUTCOMES = [
   { v: "successful", label: "موفق" },
+  { v: "purchased", label: "خرید" },
   { v: "unsuccessful", label: "ناموفق" },
   { v: "busy", label: "مشغول/مشترک" },
   { v: "no_answer", label: "پاسخ نداد" },
@@ -43,17 +48,27 @@ type Call = {
   direction: "inbound" | "outbound";
   status?: string;
   // نتیجه‌ی تماس از نظر فروش (دستیِ کارشناس):
-  // successful / unsuccessful / busy / no_answer / follow_up
+  // successful / purchased / unsuccessful / busy / no_answer / follow_up
   outcome?: string | null;
+  student_id?: string | null;
   student_name?: string;
   caller_number: string;
   duration_sec: number;
   started_at?: string;
   lead_score?: number;
+  // اطلاعات دانشجو (از join در لیست تماس)
+  grade?: string | null;
+  field?: string | null;
+  goal?: string | null;
+  gpa?: number | null;
+  city?: string | null;
   summary?: string;
   signals?: string[];
   confidence?: number;
 };
+
+type SaleMeta = { products: string[]; accounts: string[]; program_months: number[] };
+type ItemRow = { product: string; months: number | ""; amount: string };
 
 /** نشان رنگیِ وضعیت/نتیجه‌ی تماس (مطابق ستون رنگی عکس ۶ کارفرما). */
 function StatusBadge({ status, outcome }: { status?: string; outcome?: string | null }) {
@@ -288,12 +303,17 @@ export default function CallsPage() {
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-600">
                   {(c.student_name ?? "?").charAt(0)}
                 </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setOutcomeCall(c)}
+                  className="min-w-0 text-right transition hover:opacity-80"
+                  title="نمایش جزئیات و ثبت نتیجه"
+                >
+                  <div className="font-semibold text-slate-800 underline-offset-4 hover:underline">
                     {c.student_name ?? "ناشناس"}
                   </div>
                   <div className="text-xs text-slate-400" dir="ltr">{c.caller_number}</div>
-                </div>
+                </button>
 
                 <div className="mr-auto flex flex-wrap items-center gap-4 text-sm">
                   <DirectionTag direction={c.direction} status={c.status} />
@@ -322,6 +342,32 @@ export default function CallsPage() {
                   <CallButton mobile={c.caller_number} size="sm" />
                 </div>
               </div>
+
+              {/* اطلاعات دانشجو: پایه/رشته · هدف · معدل · شهر */}
+              {(c.grade || c.field || c.goal || c.gpa != null || c.city) && (
+                <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                  {(c.grade || c.field) && (
+                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700">
+                      {[c.grade, c.field].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
+                  {c.goal && (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                      🎯 {c.goal}
+                    </span>
+                  )}
+                  {c.gpa != null && (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                      معدل {faNum(c.gpa)}
+                    </span>
+                  )}
+                  {c.city && (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                      📍 {c.city}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* خلاصه‌ی هوش مصنوعی */}
               {c.summary && (
@@ -383,20 +429,82 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
+  const isPurchase = outcome === "purchased";
+
+  // جزئیات تماس (رونوشت/تحلیل) — در حالت واقعی از بک‌اند
+  const { data: detail } = useQuery<{
+    transcript?: { content?: string } | null;
+    analysis?: { next_best_action?: string; signals?: string[] } | null;
+  }>({
+    queryKey: ["call-detail", call.id],
+    queryFn: async () => (await api.get(`/calls/${call.id}`)).data,
+    enabled: !DEMO,
+  });
+
+  // متاِ فیش برای فرم خرید
+  const { data: meta } = useQuery<SaleMeta>({
+    queryKey: ["sales-meta"],
+    queryFn: async () => (await api.get("/sales/meta")).data,
+    enabled: isPurchase,
+  });
+
+  // فرم فیشِ خرید (وقتی نتیجه = خرید)
+  const [rows, setRows] = useState<ItemRow[]>([{ product: "", months: "", amount: "" }]);
+  const [saleDate, setSaleDate] = useState("");
+  const [depDate, setDepDate] = useState("");
+  const [depTime, setDepTime] = useState("");
+  const [payerCard, setPayerCard] = useState("");
+  const [destAccount, setDestAccount] = useState("");
+  const [payRef, setPayRef] = useState("");
+
+  function setRow(i: number, patch: Partial<ItemRow>) {
+    setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+  }
+
+  const summary = call.summary ?? detail?.analysis?.next_best_action;
+  const signals = call.signals ?? detail?.analysis?.signals;
+  const transcript = detail?.transcript?.content;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!outcome && !nextDate) {
       setMsg("حداقل نتیجه یا تاریخ تماس بعدی را وارد کنید.");
       return;
     }
+    // اعتبارسنجی فرم خرید
+    if (isPurchase) {
+      for (const r of rows) {
+        if (!r.product) { setMsg("محصولِ هر ردیف را انتخاب کنید."); return; }
+        if (r.product === PROGRAM && !r.months) { setMsg("برای «برنامه»، مدت را انتخاب کنید."); return; }
+        if (!r.amount || Number(r.amount) <= 0) { setMsg("مبلغِ هر محصول را وارد کنید."); return; }
+      }
+    }
     setMsg("");
     setLoading(true);
     try {
       if (DEMO) {
         setMsg("در حالت نمایشی ذخیره نمی‌شود.");
+        setLoading(false);
         return;
       }
-      // تاریخِ شمسی (ISO میلادی) + ساعت → datetime؛ اگر ساعت نبود ۹ صبح فرض می‌شود
+      // نتیجه = خرید → ابتدا فیش فروش ساخته می‌شود (می‌رود تو لیست واریزها)
+      if (isPurchase) {
+        await api.post("/sales", {
+          student_name: call.student_name || call.caller_number,
+          mobile: call.caller_number,
+          student_id: call.student_id ?? null,
+          sold_at: saleDate ? new Date(`${saleDate}T12:00`).toISOString() : null,
+          items: rows.map((r) => ({
+            product: r.product,
+            program_months: r.product === PROGRAM ? r.months : null,
+            amount: Number(r.amount) || 0,
+          })),
+          deposited_at: depDate ? new Date(`${depDate}T${depTime || "00:00"}`).toISOString() : null,
+          payer_card: payerCard || null,
+          dest_account: destAccount || null,
+          payment_ref: payRef || null,
+        });
+      }
       const nextCallAt = nextDate
         ? new Date(`${nextDate}T${nextTime || "09:00"}`).toISOString()
         : null;
@@ -407,6 +515,7 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
       });
       qc.invalidateQueries({ queryKey: ["calls"] });
       qc.invalidateQueries({ queryKey: ["tasks-today"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
       onClose();
     } catch {
       setMsg("ثبت ناموفق بود.");
@@ -437,10 +546,39 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-slate-500">
+        <p className="mb-3 text-sm text-slate-500">
           {call.student_name ?? "ناشناس"} ·{" "}
           <span dir="ltr">{call.caller_number}</span>
         </p>
+
+        {/* جزئیات ارتباط: خلاصه‌ی AI، سیگنال‌ها، رونوشت */}
+        <div className="mb-4 rounded-xl bg-gradient-to-l from-violet-50 to-blue-50 p-3">
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-violet-700">
+            <Sparkles size={14} /> جزئیات ارتباط
+          </div>
+          {summary ? (
+            <p className="text-sm leading-relaxed text-slate-700">{summary}</p>
+          ) : (
+            <p className="text-xs text-slate-400">خلاصه‌ای برای این تماس ثبت نشده است.</p>
+          )}
+          {signals && signals.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {signals.map((sig, i) => (
+                <span key={i} className="rounded-full bg-white/70 px-2 py-0.5 text-xs text-violet-700 ring-1 ring-violet-100">
+                  {sig}
+                </span>
+              ))}
+            </div>
+          )}
+          {transcript && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs font-medium text-violet-600">متن مکالمه</summary>
+              <p className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-slate-600">
+                {transcript}
+              </p>
+            </details>
+          )}
+        </div>
 
         <form onSubmit={submit} className="space-y-4">
           {/* نتیجه‌ی تماس */}
@@ -466,31 +604,111 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
             </div>
           </div>
 
-          {/* تاریخ تماس بعدی */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              تاریخ و ساعت تماس بعدی{" "}
-              <span className="font-normal text-slate-400">(اختیاری)</span>
-            </label>
-            <div className="flex flex-wrap items-center gap-2">
-              <JalaliDatePicker
-                value={nextDate}
-                onChange={setNextDate}
-                placeholder="تاریخ (شمسی)"
-              />
-              <input
-                type="time"
-                value={nextTime}
-                onChange={(e) => setNextTime(e.target.value)}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
-                dir="ltr"
-              />
+          {/* فرم فیشِ خرید — فقط وقتی نتیجه = «خرید» */}
+          {isPurchase && (
+            <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+              <div className="text-sm font-semibold text-emerald-800">
+                ثبت فیش خرید — می‌رود تو لیست واریزها
+              </div>
+              {/* محصولات چندتایی */}
+              <div className="space-y-2">
+                {rows.map((r, i) => (
+                  <div key={i} className="rounded-lg border border-slate-200 bg-white p-2">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={r.product}
+                        onChange={(e) => setRow(i, { product: e.target.value, months: "" })}
+                        className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm outline-none focus:border-emerald-400"
+                      >
+                        <option value="" disabled>انتخاب محصول…</option>
+                        {(meta?.products ?? []).map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="number" placeholder="مبلغ" value={r.amount}
+                        onChange={(e) => setRow(i, { amount: e.target.value })}
+                        className="w-28 rounded-lg border border-slate-300 px-2 py-2 text-sm outline-none focus:border-emerald-400"
+                        dir="ltr" min={0}
+                      />
+                      {rows.length > 1 && (
+                        <button type="button" onClick={() => setRows((rs) => rs.filter((_, k) => k !== i))}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                    {r.product === PROGRAM && (
+                      <select
+                        value={r.months}
+                        onChange={(e) => setRow(i, { months: Number(e.target.value) })}
+                        className="mt-2 w-full rounded-lg border border-indigo-300 bg-indigo-50/40 px-2 py-2 text-sm outline-none focus:border-indigo-400"
+                      >
+                        <option value="" disabled>مدت برنامه…</option>
+                        {(meta?.program_months ?? []).map((m) => (
+                          <option key={m} value={m}>{faNum(m)} ماه</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={() => setRows((rs) => [...rs, { product: "", months: "", amount: "" }])}
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700">
+                  <Plus size={14} /> افزودن محصول
+                </button>
+              </div>
+              {/* تاریخ فروش + اسناد واریز */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500">تاریخ فروش:</span>
+                <JalaliDatePicker value={saleDate} onChange={setSaleDate} placeholder="امروز" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500">تاریخ/ساعت واریز:</span>
+                <JalaliDatePicker value={depDate} onChange={setDepDate} placeholder="تاریخ" />
+                <input type="time" value={depTime} onChange={(e) => setDepTime(e.target.value)}
+                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400" dir="ltr" />
+              </div>
+              <input placeholder="کارت واریزکننده" value={payerCard} onChange={(e) => setPayerCard(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400" dir="ltr" />
+              <select value={destAccount} onChange={(e) => setDestAccount(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400">
+                <option value="">بانک مقصد (حساب ما)…</option>
+                {(meta?.accounts ?? []).map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              <input placeholder="جزئیات واریز (کد رهگیری) — اختیاری" value={payRef} onChange={(e) => setPayRef(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400" dir="ltr" />
             </div>
-            <p className="mt-1 text-xs text-slate-400">
-              اگر تاریخ تعیین شود، یک پیگیری در «کارهای روز» ساخته می‌شود
-              (ساعت پیش‌فرض ۹ صبح).
-            </p>
-          </div>
+          )}
+
+          {/* تاریخ تماس بعدی — وقتی خرید نیست */}
+          {!isPurchase && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                تاریخ و ساعت تماس بعدی{" "}
+                <span className="font-normal text-slate-400">(اختیاری)</span>
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <JalaliDatePicker
+                  value={nextDate}
+                  onChange={setNextDate}
+                  placeholder="تاریخ (شمسی)"
+                />
+                <input
+                  type="time"
+                  value={nextTime}
+                  onChange={(e) => setNextTime(e.target.value)}
+                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
+                  dir="ltr"
+                />
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                اگر تاریخ تعیین شود، یک پیگیری در «کارهای روز» ساخته می‌شود
+                (ساعت پیش‌فرض ۹ صبح).
+              </p>
+            </div>
+          )}
 
           {/* توضیح */}
           <div>

@@ -20,25 +20,28 @@ class CallQueryService:
         self._s = session
 
     async def list(self, direction, status, page, size) -> dict:
-        stmt = select(Call)
+        # join با Student تا نام + پایه/رشته/هدف/معدل/شهر کنار هر تماس بیاید
+        base = (
+            select(Call, Student.full_name, Student.grade, Student.field,
+                   Student.goal, Student.gpa, Student.city)
+            .outerjoin(Student, Student.id == Call.student_id)
+        )
         if direction:
-            stmt = stmt.where(Call.direction == direction)
+            base = base.where(Call.direction == direction)
         if status:
-            stmt = stmt.where(Call.status == status)
+            base = base.where(Call.status == status)
 
         total = await self._s.scalar(
-            select(func.count()).select_from(stmt.subquery())
+            select(func.count()).select_from(base.subquery())
         )
-        rows = (
-            await self._s.execute(
-                stmt.order_by(Call.started_at.desc())
-                .offset((page - 1) * size)
-                .limit(size)
-            )
-        ).scalars().all()
+        rows = (await self._s.execute(
+            base.order_by(Call.started_at.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )).all()
 
         # آخرین امتیاز هر تماس
-        call_ids = [c.id for c in rows]
+        call_ids = [r[0].id for r in rows]
         scores: dict = {}
         if call_ids:
             score_rows = await self._s.execute(
@@ -53,14 +56,21 @@ class CallQueryService:
                 "id": str(c.id),
                 "direction": c.direction,
                 "status": c.status,
+                "outcome": c.outcome,
                 "caller_number": c.caller_number,
                 "callee_number": c.callee_number,
                 "duration_sec": c.duration_sec,
                 "started_at": c.started_at.isoformat() if c.started_at else None,
                 "student_id": str(c.student_id) if c.student_id else None,
+                "student_name": name,
+                "grade": grade,
+                "field": field,
+                "goal": goal,
+                "gpa": float(gpa) if gpa is not None else None,
+                "city": city,
                 "lead_score": scores.get(c.id),
             }
-            for c in rows
+            for c, name, grade, field, goal, gpa, city in rows
         ]
         return {"items": items, "total": total or 0, "page": page, "size": size}
 
