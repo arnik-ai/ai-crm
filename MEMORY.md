@@ -199,6 +199,13 @@ docs/     → ۱۲ سند معماری فارسی
     - **تماس‌ها:** دکمه‌ی مداد کنار «ثبت نتیجه» → `EditStudentModal` (PATCH /students/{student_id}).
     - lookup در دمو گارد شده (GETِ نگاشت‌نشده).
 
+31. **بهبودهای یوزرفرندلی — دسته‌ی اول (commitها بعد از tag `ui-stable`)** —
+    🔖 **نقطه‌ی بازگشت: `git tag ui-stable` روی `a6816e2`** (برای revertِ کلِ این تغییرات).
+    - `9fb24e9` #۱ نوار ناوبریِ پایینِ موبایل (Sidebar.BottomNav + padding در globals.css).
+    - `0bd27ac` #۴ راهنمای مبلغ به تومان + #۵ دکمه‌ی ثبتِ چسبان (sticky) در مودال‌ها.
+    - `d16b29f` #۳ سیستم Toast (`components/Toast.tsx` + ToastProvider) وصل به اقدام‌های اصلی.
+    - ⏳ مانده از اولویت‌بالا: #۲ جدول‌ها→کارت روی موبایل، #۶ جستجوی سراسری.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
