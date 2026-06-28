@@ -137,6 +137,10 @@ docs/     → ۱۲ سند معماری فارسی
     `lib/jalali.ts` (تبدیل دوطرفه‌ی میلادی↔شمسی بدون کتابخانه، با تستِ نوروز/کبیسه)
     جایگزینِ `<input type=date>` در فیلتر گزارش ارتباطات. خروجیِ پیکر ISO میلادی است
     تا بک‌اند بدون تغییر بماند. قوانین طلایی #۸ (تاریخ شمسی) و #۹ (RTL فارسی) ثبت شد.
+    سپس (commitهای `d19337f`/`cd262a5`) پیکر در دو جای دیگر هم گذاشته شد: انتخابِ
+    روزِ «گزارش روزانه» (بک‌اند از قبل پارامتر date داشت) و «تاریخِ تماس بعدی» در مودال
+    نتیجه‌ی تماس (پیکر شمسی + input ساعت → ISO). حالا **هیچ `<input type=date/datetime>`
+    میلادی در کل فرانت نمانده.**
 
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
