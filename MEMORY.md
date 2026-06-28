@@ -191,6 +191,14 @@ docs/     → ۱۲ سند معماری فارسی
       شیت (خانه‌های ماه از `start_month` با نام ماهِ شمسی)، کلیک = سبز/برداشته با فیدبکِ
       فوری (در دمو هم). مبلغ‌ها «هزار تومان». مشاور = متنِ آزاد (مطابق اکسل).
 
+30. **شناساییِ موبایلِ تکراری + مدادِ ویرایش در تماس‌ها (commit `a782bce`)** —
+    - endpoint `GET /students/lookup?mobile=` (`StudentService.lookup_by_mobile`): وجود/نام/
+      تاریخ ثبت + خریدهای قبلی. ⚠️ روتش قبل از `/students/{student_id}` باشد.
+    - **ثبت فیش:** ورود موبایلِ آشنا (onBlur) → پرکردنِ خودکارِ نام + پیام «دوباره فروختی +
+      خرید قبلی». **کارهای روز:** شماره‌ی تکراری → باکس «تکراری، در تاریخ X» + پرکردن نام.
+    - **تماس‌ها:** دکمه‌ی مداد کنار «ثبت نتیجه» → `EditStudentModal` (PATCH /students/{student_id}).
+    - lookup در دمو گارد شده (GETِ نگاشت‌نشده).
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
@@ -228,6 +236,7 @@ BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, Jal
 ## 📜 تاریخچه‌ی Commitها
 
 ```
+a782bce شناسایی موبایل تکراری (پرکردن نام + پیام‌ها) + مداد ویرایش در تماس‌ها
 c813317 بخش «اقساط برنامه‌ها» (تب جدا + افزودن دستی + تیک کلیکی)
 d293f60 رفع اسکرول مودال نتیجه‌ی تماس
 ed6fe91 انتخاب چندمحصولیِ تیکی + بانک مقصد متنِ آزاد
