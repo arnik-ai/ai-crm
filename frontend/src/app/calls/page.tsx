@@ -10,6 +10,7 @@ import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faDuration, faDateTime } from "@/lib/utils";
+import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import {
   PhoneIncoming,
   PhoneOutgoing,
@@ -376,14 +377,15 @@ export default function CallsPage() {
 function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
   const qc = useQueryClient();
   const [outcome, setOutcome] = useState(call.outcome ?? "");
-  const [nextCall, setNextCall] = useState("");
+  const [nextDate, setNextDate] = useState(""); // ISO میلادی از پیکر شمسی
+  const [nextTime, setNextTime] = useState(""); // HH:MM
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!outcome && !nextCall) {
+    if (!outcome && !nextDate) {
       setMsg("حداقل نتیجه یا تاریخ تماس بعدی را وارد کنید.");
       return;
     }
@@ -394,9 +396,13 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
         setMsg("در حالت نمایشی ذخیره نمی‌شود.");
         return;
       }
+      // تاریخِ شمسی (ISO میلادی) + ساعت → datetime؛ اگر ساعت نبود ۹ صبح فرض می‌شود
+      const nextCallAt = nextDate
+        ? new Date(`${nextDate}T${nextTime || "09:00"}`).toISOString()
+        : null;
       await api.post(`/calls/${call.id}/outcome`, {
         outcome: outcome || null,
-        next_call_at: nextCall ? new Date(nextCall).toISOString() : null,
+        next_call_at: nextCallAt,
         note: note || null,
       });
       qc.invalidateQueries({ queryKey: ["calls"] });
@@ -466,15 +472,23 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
               تاریخ و ساعت تماس بعدی{" "}
               <span className="font-normal text-slate-400">(اختیاری)</span>
             </label>
-            <input
-              type="datetime-local"
-              value={nextCall}
-              onChange={(e) => setNextCall(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400"
-              dir="ltr"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <JalaliDatePicker
+                value={nextDate}
+                onChange={setNextDate}
+                placeholder="تاریخ (شمسی)"
+              />
+              <input
+                type="time"
+                value={nextTime}
+                onChange={(e) => setNextTime(e.target.value)}
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
+                dir="ltr"
+              />
+            </div>
             <p className="mt-1 text-xs text-slate-400">
-              اگر تعیین شود، یک پیگیری در «کارهای روز» ساخته می‌شود.
+              اگر تاریخ تعیین شود، یک پیگیری در «کارهای روز» ساخته می‌شود
+              (ساعت پیش‌فرض ۹ صبح).
             </p>
           </div>
 
