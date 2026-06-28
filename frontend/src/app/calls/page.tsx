@@ -458,8 +458,9 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
     enabled: isPurchase,
   });
 
-  // فرم فیشِ خرید (وقتی نتیجه = خرید) — انتخابِ چندمحصولی با تیک
-  const [sel, setSel] = useState<Record<string, { amount: string; months: number | "" }>>({});
+  // فرم فیشِ خرید (وقتی نتیجه = خرید) — انتخابِ چندمحصولی با تیک (بدون قیمتِ جداگانه)
+  const [sel, setSel] = useState<Record<string, { months: number | "" }>>({});
+  const [payAmount, setPayAmount] = useState(""); // مبلغِ کلِ واریز (هزار تومان)
   const [saleDate, setSaleDate] = useState("");
   const [depDate, setDepDate] = useState("");
   const [depTime, setDepTime] = useState("");
@@ -471,11 +472,11 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
     setSel((s) => {
       const next = { ...s };
       if (next[product]) delete next[product];
-      else next[product] = { amount: "", months: "" };
+      else next[product] = { months: "" };
       return next;
     });
   }
-  function patch(product: string, p: Partial<{ amount: string; months: number | "" }>) {
+  function patch(product: string, p: Partial<{ months: number | "" }>) {
     setSel((s) => ({ ...s, [product]: { ...s[product], ...p } }));
   }
 
@@ -495,8 +496,8 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
       if (picked.length === 0) { setMsg("حداقل یک محصول را تیک بزنید."); return; }
       for (const [product, v] of picked) {
         if (product === PROGRAM && !v.months) { setMsg("برای «برنامه»، مدت را انتخاب کنید."); return; }
-        if (!v.amount || Number(v.amount) <= 0) { setMsg("مبلغِ هر محصولِ انتخاب‌شده را وارد کنید."); return; }
       }
+      if (!payAmount || Number(payAmount) <= 0) { setMsg("مبلغِ واریز را وارد کنید."); return; }
     }
     setMsg("");
     setLoading(true);
@@ -516,8 +517,8 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
           items: picked.map(([product, v]) => ({
             product,
             program_months: product === PROGRAM ? v.months : null,
-            amount: (Number(v.amount) || 0) * 1000, // ورودی «هزار تومان» → تومانِ کامل
           })),
+          amount: (Number(payAmount) || 0) * 1000, // ورودی «هزار تومان» → تومانِ کامل
           deposited_at: depDate ? new Date(`${depDate}T${depTime || "00:00"}`).toISOString() : null,
           payer_card: payerCard || null,
           dest_account: destAccount || null,
@@ -638,14 +639,6 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
                       <label className="flex cursor-pointer items-center gap-2">
                         <input type="checkbox" checked={picked} onChange={() => toggle(p)} className="h-4 w-4 accent-emerald-600" />
                         <span className="flex-1 text-sm text-slate-700">{p}</span>
-                        {picked && (
-                          <input
-                            type="number" placeholder="مبلغ (هزار تومان)" value={sel[p].amount}
-                            onChange={(e) => patch(p, { amount: e.target.value })}
-                            className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
-                            dir="ltr" min={0}
-                          />
-                        )}
                       </label>
                       {picked && p === PROGRAM && (
                         <select
@@ -663,6 +656,13 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
                   );
                 })}
               </div>
+              {/* مبلغِ واریز — یک مبلغ برای کلِ فیش */}
+              <input
+                type="number" placeholder="مبلغ واریز (هزار تومان)" value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400"
+                dir="ltr" min={0}
+              />
               {/* تاریخ فروش + اسناد واریز */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-slate-500">تاریخ فروش:</span>

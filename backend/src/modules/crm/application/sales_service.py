@@ -39,7 +39,8 @@ class SalesService:
         sold_at = body.sold_at or datetime.now(tz=timezone.utc)
         if sold_at.tzinfo is None:
             sold_at = sold_at.replace(tzinfo=timezone.utc)
-        total = sum(it.amount for it in body.items)
+        # مبلغِ کلِ فیش (یک مبلغِ واریز برای کلِ محصولات)
+        total = body.amount
         # خلاصه‌ی محصول/مدت برای سازگاری و نمایش
         program_item = next(
             (it for it in body.items if it.product == PROGRAM_PRODUCT), None)
@@ -77,11 +78,11 @@ class SalesService:
         self._s.add(sale)
         await self._s.flush()
 
-        # آیتم‌های فیش (هر محصول با مبلغِ خودش)
+        # آیتم‌های فیش (فقط محصول/مدت؛ مبلغ روی کلِ فیش است)
         for it in body.items:
             self._s.add(SaleItem(
                 sale_id=sale.id, product=it.product,
-                program_months=it.program_months, amount=it.amount,
+                program_months=it.program_months, amount=0,
             ))
 
         # تماس پیگیری خودکار چند روز پس از خرید → در «کارهای روز» دیده می‌شود
@@ -98,8 +99,7 @@ class SalesService:
         await self._s.commit()
         result = self._to_dict(sale)
         result["items"] = [
-            {"product": it.product, "program_months": it.program_months,
-             "amount": float(it.amount)}
+            {"product": it.product, "program_months": it.program_months, "amount": 0.0}
             for it in body.items
         ]
         return result
@@ -112,15 +112,19 @@ class SalesService:
         total_amount = await self._s.scalar(
             select(func.coalesce(func.sum(Sale.amount), 0))
         ) or 0
-        # جمع تفکیکی از آیتم‌ها (مبلغِ هر محصول): «برنامه» جدا، «دوره» (غیربرنامه) جدا.
-        # از sale_items خوانده می‌شود تا حتی برای فیشِ ترکیبی هم دقیق باشد.
+        # جمع تفکیکی در سطحِ فیش (یک مبلغِ کل): اگر فیش شاملِ «برنامه» باشد →
+        # جمعِ «برنامه»؛ وگرنه → «دوره». (مبلغ روی کلِ فیش است، نه تک‌تکِ محصولات.)
+        has_program = (
+            select(SaleItem.id)
+            .where(SaleItem.sale_id == Sale.id,
+                   SaleItem.product == PROGRAM_PRODUCT)
+            .exists()
+        )
         total_program = await self._s.scalar(
-            select(func.coalesce(func.sum(SaleItem.amount), 0))
-            .where(SaleItem.product == PROGRAM_PRODUCT)
+            select(func.coalesce(func.sum(Sale.amount), 0)).where(has_program)
         ) or 0
         total_other = await self._s.scalar(
-            select(func.coalesce(func.sum(SaleItem.amount), 0))
-            .where(SaleItem.product != PROGRAM_PRODUCT)
+            select(func.coalesce(func.sum(Sale.amount), 0)).where(~has_program)
         ) or 0
         rows = (await self._s.execute(
             stmt.offset((page - 1) * size).limit(size)

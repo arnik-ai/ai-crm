@@ -136,10 +136,10 @@ DEST_ACCOUNTS = [
 
 
 class SaleItemIn(BaseModel):
-    """یک محصولِ خریداری‌شده در فیش — با مبلغِ جداگانه‌ی خودش."""
+    """یک محصولِ خریداری‌شده در فیش — فقط محصول/مدت (مبلغ در سطحِ کلِ فیش است)."""
     product: str
     program_months: int | None = Field(default=None, ge=1, le=12)
-    amount: float = Field(ge=0)
+    amount: float = Field(default=0, ge=0)  # دیگر استفاده نمی‌شود؛ مبلغِ کل روی Sale
 
     @field_validator("product")
     @classmethod
@@ -162,8 +162,9 @@ class SaleItemIn(BaseModel):
 class SaleCreate(BaseModel):
     student_name: str = Field(min_length=2)
     mobile: str = Field(pattern=r"^\+?\d{10,15}$")
-    # چندمحصولی: حداقل یک آیتم، هرکدام مبلغِ خودش را دارد
+    # چندمحصولی: حداقل یک محصولِ تیک‌خورده (بدون مبلغِ جداگانه)
     items: list[SaleItemIn] = Field(min_length=1)
+    amount: float = Field(default=0, ge=0)  # مبلغِ کلِ واریز (تومان)
     sold_at: datetime | None = None  # تاریخ فروش (اگر خالی، اکنون)
     # اسناد واریز (به‌جای «نوع پرداخت»)
     deposited_at: datetime | None = None  # ساعت+تاریخِ واریز

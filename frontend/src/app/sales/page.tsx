@@ -260,16 +260,13 @@ export default function SalesPage() {
                     )}
                   </td>
                   <td className="p-3.5 align-top">
-                    <div className="flex flex-col gap-1">
-                      {(s.items?.length ? s.items : [{ product: s.product ?? "—", program_months: s.program_months, amount: s.amount }]).map((it, k) => (
-                        <div key={k} className="flex items-center gap-2">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                            it.product === PROGRAM ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"
-                          }`}>
-                            {it.product}{it.program_months ? ` · ${faNum(it.program_months)} ماه` : ""}
-                          </span>
-                          <span className="text-xs text-slate-400">{amountFa(it.amount)}</span>
-                        </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(s.items?.length ? s.items : [{ product: s.product ?? "—", program_months: s.program_months, amount: 0 }]).map((it, k) => (
+                        <span key={k} className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          it.product === PROGRAM ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"
+                        }`}>
+                          {it.product}{it.program_months ? ` · ${faNum(it.program_months)} ماه` : ""}
+                        </span>
                       ))}
                     </div>
                   </td>
@@ -323,8 +320,9 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   const [studentName, setStudentName] = useState("");
   const [mobile, setMobile] = useState("");
   const [saleDate, setSaleDate] = useState(""); // تاریخ فروش (ISO میلادی از پیکر شمسی)
-  // محصولاتِ انتخاب‌شده با تیک: کلید=نام محصول، مقدار={مبلغ، مدت}
-  const [sel, setSel] = useState<Record<string, { amount: string; months: number | "" }>>({});
+  // محصولاتِ انتخاب‌شده با تیک: کلید=نام محصول، مقدار={مدت}؛ مبلغ روی کلِ فیش است
+  const [sel, setSel] = useState<Record<string, { months: number | "" }>>({});
+  const [payAmount, setPayAmount] = useState(""); // مبلغِ کلِ واریز (هزار تومان)
   const [depDate, setDepDate] = useState(""); // ISO میلادی از پیکر شمسی
   const [depTime, setDepTime] = useState(""); // HH:MM
   const [payerCard, setPayerCard] = useState("");
@@ -348,11 +346,11 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     setSel((s) => {
       const next = { ...s };
       if (next[product]) delete next[product];
-      else next[product] = { amount: "", months: "" };
+      else next[product] = { months: "" };
       return next;
     });
   }
-  function patch(product: string, p: Partial<{ amount: string; months: number | "" }>) {
+  function patch(product: string, p: Partial<{ months: number | "" }>) {
     setSel((s) => ({ ...s, [product]: { ...s[product], ...p } }));
   }
 
@@ -363,8 +361,8 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     if (picked.length === 0) { setError("حداقل یک محصول را تیک بزنید."); return; }
     for (const [product, v] of picked) {
       if (product === PROGRAM && !v.months) { setError("برای «برنامه»، مدت (ماه) را انتخاب کنید."); return; }
-      if (!v.amount || Number(v.amount) <= 0) { setError("مبلغِ هر محصولِ انتخاب‌شده را وارد کنید."); return; }
     }
+    if (!payAmount || Number(payAmount) <= 0) { setError("مبلغِ واریز را وارد کنید."); return; }
     setLoading(true);
     try {
       if (DEMO) {
@@ -383,8 +381,8 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
         items: picked.map(([product, v]) => ({
           product,
           program_months: product === PROGRAM ? v.months : null,
-          amount: thousandsToToman(v.amount),
         })),
+        amount: thousandsToToman(payAmount),
         deposited_at: depositedAt,
         payer_card: payerCard || null,
         dest_account: destAccount || null,
@@ -397,8 +395,6 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
       setLoading(false);
     }
   }
-
-  const total = Object.values(sel).reduce((sum, v) => sum + (Number(v.amount) || 0), 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -446,7 +442,7 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
             <JalaliDatePicker value={saleDate} onChange={setSaleDate} placeholder="امروز" />
           </div>
 
-          {/* محصولات — هر چند محصول را تیک بزن؛ هرکدام مبلغِ خودش را دارد */}
+          {/* محصولات — هر چند محصول را تیک بزن (بدون قیمتِ جداگانه) */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
             <div className="mb-2 text-sm font-medium text-slate-700">
               محصولات خریداری‌شده <span className="text-xs font-normal text-slate-400">(هر تعداد که خواستی تیک بزن)</span>
@@ -464,17 +460,6 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
                         className="h-4 w-4 accent-emerald-600"
                       />
                       <span className="flex-1 text-sm text-slate-700">{p}</span>
-                      {picked && (
-                        <input
-                          type="number"
-                          placeholder="مبلغ (هزار تومان)"
-                          value={sel[p].amount}
-                          onChange={(e) => patch(p, { amount: e.target.value })}
-                          className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
-                          dir="ltr"
-                          min={0}
-                        />
-                      )}
                     </label>
                     {/* مدت — فقط برای «برنامه»ی تیک‌خورده */}
                     {picked && p === PROGRAM && (
@@ -493,9 +478,21 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
                 );
               })}
             </div>
-            <div className="mt-2 text-left text-xs font-medium text-emerald-700">
-              جمع کل: {faNum(total)} هزار تومان
-            </div>
+          </div>
+
+          {/* مبلغِ واریز — یک مبلغ برای کلِ فیش */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">مبلغ واریز</label>
+            <input
+              type="number"
+              placeholder="مبلغ واریز (هزار تومان)"
+              value={payAmount}
+              onChange={(e) => setPayAmount(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400"
+              dir="ltr"
+              min={0}
+              required
+            />
           </div>
 
           {/* اسناد واریز */}
