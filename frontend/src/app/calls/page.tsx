@@ -497,7 +497,7 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
           items: rows.map((r) => ({
             product: r.product,
             program_months: r.product === PROGRAM ? r.months : null,
-            amount: Number(r.amount) || 0,
+            amount: (Number(r.amount) || 0) * 1000, // ورودی «هزار تومان» → تومانِ کامل
           })),
           deposited_at: depDate ? new Date(`${depDate}T${depTime || "00:00"}`).toISOString() : null,
           payer_card: payerCard || null,
@@ -626,7 +626,7 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
                         ))}
                       </select>
                       <input
-                        type="number" placeholder="مبلغ" value={r.amount}
+                        type="number" placeholder="مبلغ (هزار تومان)" value={r.amount}
                         onChange={(e) => setRow(i, { amount: e.target.value })}
                         className="w-28 rounded-lg border border-slate-300 px-2 py-2 text-sm outline-none focus:border-emerald-400"
                         dir="ltr" min={0}

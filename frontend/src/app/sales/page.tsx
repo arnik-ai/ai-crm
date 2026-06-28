@@ -62,10 +62,15 @@ type SalesMeta = {
 
 const PAGE_SIZE = 20;
 
-/** فرمت مبلغ تومان (نمایش به میلیون برای خوانایی). */
-function amountMillions(n: number): string {
-  const m = Math.round((n / 1_000_000) * 10) / 10;
-  return `${faNum(m)} م تومان`;
+/** نمایش مبلغ به واحدِ «هزار تومان» (سه صفر آخر حذف می‌شود — مطابق روالِ کارفرما).
+ *  مقدار در دیتابیس تومانِ کامل است؛ اینجا ÷۱۰۰۰ و با برچسبِ «هزار تومان» نشان داده می‌شود. */
+function amountFa(toman: number): string {
+  return `${faNum(Math.round((toman || 0) / 1000))} هزار تومان`;
+}
+
+/** عددِ واردشده در فرم (به «هزار تومان») → تومانِ کامل برای ذخیره. */
+function thousandsToToman(entered: string | number): number {
+  return (Number(entered) || 0) * 1000;
 }
 
 /** خلاصه‌ی نام محصولاتِ یک فیش (برای جستجو/خروجی). */
@@ -79,7 +84,7 @@ const EXCEL_COLUMNS: ExcelColumn<Sale>[] = [
   { key: "mobile", label: "موبایل" },
   { key: "date", label: "تاریخ", format: (s) => showDate(s.date) },
   { key: "product", label: "محصول", format: (s) => productsText(s) },
-  { key: "amount", label: "مبلغ کل (تومان)", format: (s) => s.amount ?? 0 },
+  { key: "amount", label: "مبلغ کل (هزار تومان)", format: (s) => Math.round((s.amount ?? 0) / 1000) },
   { key: "payer_card", label: "کارت واریزکننده" },
   { key: "dest_account", label: "بانک مقصد" },
   { key: "deposited_at", label: "تاریخ واریز", format: (s) => showDate(s.deposited_at) },
@@ -152,14 +157,14 @@ export default function SalesPage() {
           <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
             <CalendarRange className="text-indigo-500" size={26} />
             <div>
-              <div className="text-2xl font-extrabold text-slate-800">{amountMillions(totalProgram)}</div>
+              <div className="text-2xl font-extrabold text-slate-800">{amountFa(totalProgram)}</div>
               <div className="text-xs text-slate-500">جمع فروش برنامه</div>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 shadow-sm">
             <CreditCard className="text-violet-500" size={26} />
             <div>
-              <div className="text-2xl font-extrabold text-slate-800">{amountMillions(totalOther)}</div>
+              <div className="text-2xl font-extrabold text-slate-800">{amountFa(totalOther)}</div>
               <div className="text-xs text-slate-500">جمع فروش دوره</div>
             </div>
           </div>
@@ -226,13 +231,13 @@ export default function SalesPage() {
                           }`}>
                             {it.product}{it.program_months ? ` · ${faNum(it.program_months)} ماه` : ""}
                           </span>
-                          <span className="text-xs text-slate-400">{amountMillions(it.amount)}</span>
+                          <span className="text-xs text-slate-400">{amountFa(it.amount)}</span>
                         </div>
                       ))}
                     </div>
                   </td>
                   <td className="p-3.5 align-top text-center font-extrabold text-emerald-600">
-                    {amountMillions(s.amount)}
+                    {amountFa(s.amount)}
                   </td>
                   <td className="p-3.5 align-top text-slate-500" dir="ltr">{s.payer_card ? faDigits(s.payer_card) : "—"}</td>
                   <td className="p-3.5 align-top text-slate-600">{s.dest_account ?? "—"}</td>
@@ -328,7 +333,7 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
         items: rows.map((r) => ({
           product: r.product,
           program_months: r.product === PROGRAM ? r.months : null,
-          amount: Number(r.amount) || 0,
+          amount: thousandsToToman(r.amount),
         })),
         deposited_at: depositedAt,
         payer_card: payerCard || null,
@@ -402,7 +407,7 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
                     </select>
                     <input
                       type="number"
-                      placeholder="مبلغ (تومان)"
+                      placeholder="مبلغ (هزار تومان)"
                       value={r.amount}
                       onChange={(e) => setRow(i, { amount: e.target.value })}
                       className="w-32 rounded-lg border border-slate-300 px-2 py-2 text-sm outline-none focus:border-emerald-400"
@@ -435,7 +440,7 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
               ))}
             </div>
             <div className="mt-2 text-left text-xs font-medium text-emerald-700">
-              جمع کل: {amountMillions(total)}
+              جمع کل: {faNum(total)} هزار تومان
             </div>
           </div>
 
