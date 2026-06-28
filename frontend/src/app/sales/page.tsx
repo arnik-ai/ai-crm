@@ -493,6 +493,11 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
               min={0}
               required
             />
+            {Number(payAmount) > 0 && (
+              <div className="mt-1 text-xs text-emerald-600">
+                = {faNum(Number(payAmount) * 1000)} تومان
+              </div>
+            )}
           </div>
 
           {/* اسناد واریز */}
@@ -534,13 +539,16 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           </div>
 
           {error && <div className="text-sm text-rose-600">{error}</div>}
-          <button
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
-          >
-            {loading && <Loader2 size={16} className="animate-spin" />}
-            ثبت فیش
-          </button>
+          {/* دکمه‌ی ثبتِ چسبان به پایینِ مودال */}
+          <div className="sticky bottom-0 -mx-6 -mb-6 border-t border-slate-100 bg-white px-6 py-3">
+            <button
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {loading && <Loader2 size={16} className="animate-spin" />}
+              ثبت فیش
+            </button>
+          </div>
         </form>
       </div>
     </div>

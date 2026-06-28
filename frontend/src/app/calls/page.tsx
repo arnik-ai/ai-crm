@@ -657,12 +657,17 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
                 })}
               </div>
               {/* مبلغِ واریز — یک مبلغ برای کلِ فیش */}
-              <input
-                type="number" placeholder="مبلغ واریز (هزار تومان)" value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400"
-                dir="ltr" min={0}
-              />
+              <div>
+                <input
+                  type="number" placeholder="مبلغ واریز (هزار تومان)" value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400"
+                  dir="ltr" min={0}
+                />
+                {Number(payAmount) > 0 && (
+                  <div className="mt-1 text-xs text-emerald-600">= {faNum(Number(payAmount) * 1000)} تومان</div>
+                )}
+              </div>
               {/* تاریخ فروش + اسناد واریز */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-slate-500">تاریخ فروش:</span>
@@ -726,7 +731,8 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-1">
+          {/* فوترِ چسبان به پایینِ مودال */}
+          <div className="sticky bottom-0 -mx-5 -mb-5 flex items-center justify-end gap-2 border-t border-slate-100 bg-white px-5 py-3">
             {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
             <button
               type="button"
