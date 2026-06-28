@@ -163,14 +163,14 @@ export default function SalesPage() {
             <CalendarRange className="text-indigo-500" size={26} />
             <div>
               <div className="text-2xl font-extrabold text-slate-800">{amountMillions(totalProgram)}</div>
-              <div className="text-xs text-slate-500">جمع فروش برنامه‌ها</div>
+              <div className="text-xs text-slate-500">جمع فروش برنامه</div>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-2xl border border-violet-100 bg-white p-4 shadow-sm">
             <CreditCard className="text-violet-500" size={26} />
             <div>
               <div className="text-2xl font-extrabold text-slate-800">{amountMillions(totalOther)}</div>
-              <div className="text-xs text-slate-500">جمع سایر محصولات</div>
+              <div className="text-xs text-slate-500">جمع فروش دوره</div>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
