@@ -38,7 +38,6 @@ const OUTCOMES = [
   { v: "unsuccessful", label: "ناموفق" },
   { v: "busy", label: "مشغول/مشترک" },
   { v: "no_answer", label: "پاسخ نداد" },
-  { v: "follow_up", label: "پیگیری" },
 ];
 
 type Call = {
@@ -684,8 +683,8 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
             </div>
           )}
 
-          {/* تاریخ تماس بعدی — وقتی خرید نیست */}
-          {!isPurchase && (
+          {/* تاریخ تماس بعدی — برای «ناموفق» و «مشترک» لازم نیست (فقط توضیح) */}
+          {!isPurchase && outcome !== "unsuccessful" && outcome !== "busy" && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 تاریخ و ساعت تماس بعدی{" "}
