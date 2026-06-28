@@ -11,7 +11,7 @@ import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDigits } from "@/lib/utils";
-import { Search, ShoppingCart, Receipt, CreditCard, CalendarRange, Plus, X, Loader2, Trash2 } from "lucide-react";
+import { Search, ShoppingCart, Receipt, CreditCard, CalendarRange, Plus, X, Loader2 } from "lucide-react";
 
 const DEMO = isDemoMode();
 const PROGRAM = "برنامه";
@@ -276,8 +276,6 @@ export default function SalesPage() {
 }
 
 /* ---------- مودال ثبت فیش (چندمحصولی + اسناد واریز) ---------- */
-type ItemRow = { product: string; months: number | ""; amount: string };
-
 function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const { data: meta } = useQuery<SalesMeta>({
     queryKey: ["sales-meta"],
@@ -287,7 +285,8 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   const [studentName, setStudentName] = useState("");
   const [mobile, setMobile] = useState("");
   const [saleDate, setSaleDate] = useState(""); // تاریخ فروش (ISO میلادی از پیکر شمسی)
-  const [rows, setRows] = useState<ItemRow[]>([{ product: "", months: "", amount: "" }]);
+  // محصولاتِ انتخاب‌شده با تیک: کلید=نام محصول، مقدار={مبلغ، مدت}
+  const [sel, setSel] = useState<Record<string, { amount: string; months: number | "" }>>({});
   const [depDate, setDepDate] = useState(""); // ISO میلادی از پیکر شمسی
   const [depTime, setDepTime] = useState(""); // HH:MM
   const [payerCard, setPayerCard] = useState("");
@@ -296,24 +295,26 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function setRow(i: number, patch: Partial<ItemRow>) {
-    setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+  function toggle(product: string) {
+    setSel((s) => {
+      const next = { ...s };
+      if (next[product]) delete next[product];
+      else next[product] = { amount: "", months: "" };
+      return next;
+    });
   }
-  function addRow() {
-    setRows((rs) => [...rs, { product: "", months: "", amount: "" }]);
-  }
-  function removeRow(i: number) {
-    setRows((rs) => (rs.length > 1 ? rs.filter((_, k) => k !== i) : rs));
+  function patch(product: string, p: Partial<{ amount: string; months: number | "" }>) {
+    setSel((s) => ({ ...s, [product]: { ...s[product], ...p } }));
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    // اعتبارسنجی هر ردیفِ محصول
-    for (const r of rows) {
-      if (!r.product) { setError("محصولِ هر ردیف را انتخاب کنید."); return; }
-      if (r.product === PROGRAM && !r.months) { setError("برای «برنامه»، مدت (ماه) را انتخاب کنید."); return; }
-      if (!r.amount || Number(r.amount) <= 0) { setError("مبلغِ هر محصول را وارد کنید."); return; }
+    const picked = Object.entries(sel);
+    if (picked.length === 0) { setError("حداقل یک محصول را تیک بزنید."); return; }
+    for (const [product, v] of picked) {
+      if (product === PROGRAM && !v.months) { setError("برای «برنامه»، مدت (ماه) را انتخاب کنید."); return; }
+      if (!v.amount || Number(v.amount) <= 0) { setError("مبلغِ هر محصولِ انتخاب‌شده را وارد کنید."); return; }
     }
     setLoading(true);
     try {
@@ -330,10 +331,10 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
         mobile,
         // ساعت ۱۲ ظهر تا با جابه‌جاییِ منطقه‌ی زمانی، روزِ فروش تغییر نکند
         sold_at: saleDate ? new Date(`${saleDate}T12:00`).toISOString() : null,
-        items: rows.map((r) => ({
-          product: r.product,
-          program_months: r.product === PROGRAM ? r.months : null,
-          amount: thousandsToToman(r.amount),
+        items: picked.map(([product, v]) => ({
+          product,
+          program_months: product === PROGRAM ? v.months : null,
+          amount: thousandsToToman(v.amount),
         })),
         deposited_at: depositedAt,
         payer_card: payerCard || null,
@@ -348,7 +349,7 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     }
   }
 
-  const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const total = Object.values(sel).reduce((sum, v) => sum + (Number(v.amount) || 0), 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -381,63 +382,52 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
             <JalaliDatePicker value={saleDate} onChange={setSaleDate} placeholder="امروز" />
           </div>
 
-          {/* محصولات (چندتایی — هرکدام با مبلغ خودش) */}
+          {/* محصولات — هر چند محصول را تیک بزن؛ هرکدام مبلغِ خودش را دارد */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">محصولات خریداری‌شده</span>
-              <button type="button" onClick={addRow}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-emerald-700">
-                <Plus size={14} /> افزودن محصول
-              </button>
+            <div className="mb-2 text-sm font-medium text-slate-700">
+              محصولات خریداری‌شده <span className="text-xs font-normal text-slate-400">(هر تعداد که خواستی تیک بزن)</span>
             </div>
-            <div className="space-y-2">
-              {rows.map((r, i) => (
-                <div key={i} className="rounded-lg border border-slate-200 bg-white p-2">
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={r.product}
-                      onChange={(e) => setRow(i, { product: e.target.value, months: "" })}
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm outline-none focus:border-emerald-400"
-                      required
-                    >
-                      <option value="" disabled>انتخاب محصول…</option>
-                      {(meta?.products ?? []).map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      placeholder="مبلغ (هزار تومان)"
-                      value={r.amount}
-                      onChange={(e) => setRow(i, { amount: e.target.value })}
-                      className="w-32 rounded-lg border border-slate-300 px-2 py-2 text-sm outline-none focus:border-emerald-400"
-                      dir="ltr"
-                      min={0}
-                      required
-                    />
-                    {rows.length > 1 && (
-                      <button type="button" onClick={() => removeRow(i)}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500">
-                        <Trash2 size={16} />
-                      </button>
+            <div className="space-y-1.5">
+              {(meta?.products ?? []).map((p) => {
+                const picked = !!sel[p];
+                return (
+                  <div key={p} className={`rounded-lg border p-2 ${picked ? "border-emerald-300 bg-emerald-50/50" : "border-slate-200 bg-white"}`}>
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={picked}
+                        onChange={() => toggle(p)}
+                        className="h-4 w-4 accent-emerald-600"
+                      />
+                      <span className="flex-1 text-sm text-slate-700">{p}</span>
+                      {picked && (
+                        <input
+                          type="number"
+                          placeholder="مبلغ (هزار تومان)"
+                          value={sel[p].amount}
+                          onChange={(e) => patch(p, { amount: e.target.value })}
+                          className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
+                          dir="ltr"
+                          min={0}
+                        />
+                      )}
+                    </label>
+                    {/* مدت — فقط برای «برنامه»ی تیک‌خورده */}
+                    {picked && p === PROGRAM && (
+                      <select
+                        value={sel[p].months}
+                        onChange={(e) => patch(p, { months: Number(e.target.value) })}
+                        className="mt-2 w-full rounded-lg border border-indigo-300 bg-indigo-50/40 px-2 py-2 text-sm outline-none focus:border-indigo-400"
+                      >
+                        <option value="" disabled>مدت برنامه…</option>
+                        {(meta?.program_months ?? []).map((m) => (
+                          <option key={m} value={m}>{faNum(m)} ماه</option>
+                        ))}
+                      </select>
                     )}
                   </div>
-                  {/* مدت — فقط برای «برنامه» */}
-                  {r.product === PROGRAM && (
-                    <select
-                      value={r.months}
-                      onChange={(e) => setRow(i, { months: Number(e.target.value) })}
-                      className="mt-2 w-full rounded-lg border border-indigo-300 bg-indigo-50/40 px-2 py-2 text-sm outline-none focus:border-indigo-400"
-                      required
-                    >
-                      <option value="" disabled>مدت برنامه…</option>
-                      {(meta?.program_months ?? []).map((m) => (
-                        <option key={m} value={m}>{faNum(m)} ماه</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="mt-2 text-left text-xs font-medium text-emerald-700">
               جمع کل: {faNum(total)} هزار تومان
@@ -466,16 +456,12 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
                 className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400"
                 dir="ltr"
               />
-              <select
+              <input
+                placeholder="بانک مقصد / حساب ما (به دلخواه؛ مثلاً: محمدجواد شهیدی — سپه — ۱۹۲۶)"
                 value={destAccount}
                 onChange={(e) => setDestAccount(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-400"
-              >
-                <option value="">بانک مقصد (حساب ما)…</option>
-                {(meta?.accounts ?? []).map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
+                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400"
+              />
               <input
                 placeholder="جزئیات واریز (کد رهگیری) — اختیاری"
                 value={paymentRef}
