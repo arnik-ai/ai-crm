@@ -6,6 +6,7 @@ import { isDemoMode } from "@/lib/auth";
 import { faNum } from "@/lib/utils";
 import { J_MONTHS } from "@/lib/jalali";
 import { Plus, X, Loader2, Trash2, CalendarClock } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
 const DEMO = isDemoMode();
 
@@ -167,6 +168,7 @@ export function InstallmentsTab() {
 
 /* ---------- مودال افزودن ردیفِ اقساط ---------- */
 function AddPlanModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const toast = useToast();
   const { data: meta } = useQuery<{ months: string[] }>({
     queryKey: ["installments-meta"],
     queryFn: async () => (await api.get("/installments/meta")).data,
@@ -200,6 +202,7 @@ function AddPlanModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
         installment_amount: (Number(inst) || 0) * 1000,  // هزار تومان → تومان
         start_month: startMonth || null,
       });
+      toast("ردیفِ اقساط ثبت شد ✓");
       onAdded();
     } catch {
       setError("ثبت ناموفق بود.");

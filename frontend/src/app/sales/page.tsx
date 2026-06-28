@@ -9,6 +9,7 @@ import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import { InstallmentsTab } from "@/components/InstallmentsTab";
+import { useToast } from "@/components/Toast";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDigits, faDate } from "@/lib/utils";
@@ -312,6 +313,7 @@ export default function SalesPage() {
 
 /* ---------- مودال ثبت فیش (چندمحصولی + اسناد واریز) ---------- */
 function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const toast = useToast();
   const { data: meta } = useQuery<SalesMeta>({
     queryKey: ["sales-meta"],
     queryFn: async () => (await api.get("/sales/meta")).data,
@@ -388,6 +390,7 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
         dest_account: destAccount || null,
         payment_ref: paymentRef || null,
       });
+      toast("فیش فروش ثبت شد ✓");
       onAdded();
     } catch {
       setError("ثبت فیش ناموفق بود. ورودی‌ها را بررسی کنید.");

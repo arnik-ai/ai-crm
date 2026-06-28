@@ -12,6 +12,7 @@ import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum } from "@/lib/utils";
+import { useToast } from "@/components/Toast";
 import { Search, Users, GraduationCap, Phone, MessageSquare, X, Loader2, Send, Pencil } from "lucide-react";
 
 const DEMO = isDemoMode();
@@ -334,6 +335,7 @@ export default function StudentsPage() {
 /* ---------- مودال ویرایش/تکمیل اطلاعات دانشجو ---------- */
 function EditStudentModal({ student, onClose }: { student: Student; onClose: () => void }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const [fullName, setFullName] = useState(student.full_name ?? "");
   const [city, setCity] = useState(student.city ?? "");
   const [fld, setFld] = useState(student.field ?? student.course ?? "");
@@ -365,6 +367,7 @@ function EditStudentModal({ student, onClose }: { student: Student; onClose: () 
       });
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["students-incomplete"] });
+      toast("اطلاعات ذخیره شد ✓");
       onClose();
     } catch {
       setMsg("ذخیره ناموفق بود.");

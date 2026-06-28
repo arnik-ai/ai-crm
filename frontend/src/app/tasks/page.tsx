@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDate } from "@/lib/utils";
+import { useToast } from "@/components/Toast";
 // (faDate برای نمایشِ تاریخِ ثبتِ شماره‌ی تکراری)
 import {
   ClipboardList, CalendarClock, PhoneMissed, PhoneOff, UserPlus, Loader2, Plus,
@@ -309,6 +310,7 @@ function IncompleteNag() {
 /* ---------- باکس افزودن شماره‌ی جدید ---------- */
 function NewNumberBox() {
   const qc = useQueryClient();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [mobile, setMobile] = useState("");
@@ -342,7 +344,7 @@ function NewNumberBox() {
         full_name: fullName || null, mobile, lead_source: source || null,
       });
       setFullName(""); setMobile(""); setSource(""); setDup(null);
-      setMsg("شماره ثبت شد ✓");
+      toast("شماره ثبت شد ✓");
       qc.invalidateQueries({ queryKey: ["students"] });
     } catch {
       setMsg("ثبت ناموفق بود (شاید تکراری است).");

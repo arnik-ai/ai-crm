@@ -11,6 +11,7 @@ import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faDuration, faDateTime, faNum } from "@/lib/utils";
 import { JalaliDatePicker } from "@/components/JalaliDatePicker";
+import { useToast } from "@/components/Toast";
 import {
   PhoneIncoming,
   PhoneOutgoing,
@@ -432,6 +433,7 @@ export default function CallsPage() {
 /* ---------- مودال ثبت نتیجه‌ی تماس + تعیین تماس بعدی ---------- */
 function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const [outcome, setOutcome] = useState(call.outcome ?? "");
   const [nextDate, setNextDate] = useState(""); // ISO میلادی از پیکر شمسی
   const [nextTime, setNextTime] = useState(""); // HH:MM
@@ -536,6 +538,7 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
       qc.invalidateQueries({ queryKey: ["calls"] });
       qc.invalidateQueries({ queryKey: ["tasks-today"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
+      toast(isPurchase ? "خرید ثبت و فیش ساخته شد ✓" : "نتیجه‌ی تماس ثبت شد ✓");
       onClose();
     } catch {
       setMsg("ثبت ناموفق بود.");
@@ -761,6 +764,7 @@ const EDIT_SOURCES = ["سایت", "اینستاگرام", "تلگرام", "رو�
 
 function EditStudentModal({ call, onClose }: { call: Call; onClose: () => void }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const [fullName, setFullName] = useState(call.student_name ?? "");
   const [city, setCity] = useState(call.city ?? "");
   const [fld, setFld] = useState(call.field ?? "");
@@ -788,6 +792,7 @@ function EditStudentModal({ call, onClose }: { call: Call; onClose: () => void }
       });
       qc.invalidateQueries({ queryKey: ["calls"] });
       qc.invalidateQueries({ queryKey: ["students"] });
+      toast("اطلاعات ذخیره شد ✓");
       onClose();
     } catch {
       setMsg("ذخیره ناموفق بود.");
