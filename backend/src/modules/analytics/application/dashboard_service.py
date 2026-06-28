@@ -25,6 +25,21 @@ def _start_of_today() -> datetime:
     return datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
 
 
+# ایران از سال ۲۰۲۲ ساعت تابستانی (DST) ندارد؛ پس آفستِ ثابت +۳:۳۰ درست است.
+TEHRAN_OFFSET = timedelta(hours=3, minutes=30)
+
+
+def _start_of_today_tehran() -> datetime:
+    """نیمه‌شبِ «امروزِ تهران»، برگردانده‌شده به‌صورت لحظه‌ی UTC.
+
+    «کارهای روز» باید با مرزِ روزِ تهران حساب شود نه UTC؛ وگرنه بین ۰۰:۰۰ تا ۰۳:۳۰
+    بامداد به‌وقت تهران، هنوز «دیروز» نمایش داده می‌شد.
+    """
+    tehran_now = datetime.now(tz=timezone.utc) + TEHRAN_OFFSET
+    midnight = datetime.combine(tehran_now.date(), time.min, tzinfo=timezone.utc)
+    return midnight - TEHRAN_OFFSET
+
+
 def _latest_score_subquery():
     """زیرکوئری: آخرین امتیاز هر دانشجو (بر اساس created_at)."""
     ranked = (
@@ -209,25 +224,39 @@ class DashboardService:
         ]
         return {"items": items}
 
-    async def tasks_today(self, owner_id: str) -> dict:
+    async def tasks_today(self, owner_id: str | None) -> dict:
         """کارهای روزِ نیرو: پیگیری‌های امروز + تماس‌های بدون اقدام + بی‌پاسخ‌ها.
 
-        - پیگیری‌های امروز: due_at امروز و وضعیت pending
+        - پیگیری‌های امروز: due_at امروز (به وقت تهران) و وضعیت pending
         - تماس بدون اقدام: تماسِ پاسخ‌داده‌شده‌ی ۷ روز اخیر که outcome ندارد
           (شاملِ تماس‌های روزهای گذشته که هنوز رویشان اقدام نشده)
         - بی‌پاسخ: تماس‌های missed دو روز اخیر
+
+        دامنه (owner_id):
+        - اگر None باشد (مدیر/ادمین): همه‌ی کارهای تیم.
+        - در غیر این صورت (کارشناس): فقط کارهای خودش؛ اما تماس‌های بی‌صاحب
+          (agent_id خالی، مثل تماس‌های ورودی) برای همه دیده می‌شود تا گم نشود.
         """
-        today = _start_of_today()
+        today = _start_of_today_tehran()
         end = today + timedelta(days=1)
         week_ago = today - timedelta(days=7)
         two_days_ago = today - timedelta(days=2)
 
+        # شرطِ دامنه‌ی تماس‌ها: مالِ خودِ کارشناس یا بی‌صاحب (برای کارشناس)
+        def _call_scope():
+            if owner_id is None:
+                return []
+            return [(Call.agent_id == owner_id) | (Call.agent_id.is_(None))]
+
         # ۱) پیگیری‌های امروز
+        fu_filters = [Followup.due_at >= today, Followup.due_at < end,
+                      Followup.status == "pending"]
+        if owner_id is not None:
+            fu_filters.append(Followup.owner_id == owner_id)
         fu_rows = await self._s.execute(
             select(Followup, Student.full_name, Student.mobile)
             .join(Student, Student.id == Followup.student_id)
-            .where(Followup.due_at >= today, Followup.due_at < end,
-                   Followup.status == "pending")
+            .where(*fu_filters)
             .order_by(Followup.due_at)
         )
         followups = [
@@ -241,7 +270,7 @@ class DashboardService:
             select(Call.id, Call.caller_number, Call.started_at, Student.full_name)
             .outerjoin(Student, Student.id == Call.student_id)
             .where(Call.started_at >= week_ago, Call.outcome.is_(None),
-                   Call.status != "missed")
+                   Call.status != "missed", *_call_scope())
             .order_by(Call.started_at.desc()).limit(100)
         )
         pending_action = [
@@ -254,7 +283,8 @@ class DashboardService:
         miss_rows = await self._s.execute(
             select(Call.id, Call.caller_number, Call.started_at, Student.full_name)
             .outerjoin(Student, Student.id == Call.student_id)
-            .where(Call.started_at >= two_days_ago, Call.status == "missed")
+            .where(Call.started_at >= two_days_ago, Call.status == "missed",
+                   *_call_scope())
             .order_by(Call.started_at.desc()).limit(100)
         )
         missed = [
@@ -265,12 +295,15 @@ class DashboardService:
 
         # ۴) یادآور تمدید برنامه: موعدهای تمدید از امروز تا ۵ روز آینده
         renew_until = today + timedelta(days=6)  # شامل ۵ روز کامل پیش‌رو
+        ren_filters = [Sale.renewal_due_at.is_not(None),
+                       Sale.renewal_due_at >= today,
+                       Sale.renewal_due_at < renew_until]
+        if owner_id is not None:
+            ren_filters.append(Sale.agent_id == owner_id)
         ren_rows = await self._s.execute(
             select(Sale.id, Sale.student_name, Sale.mobile,
                    Sale.renewal_due_at, Sale.program_months)
-            .where(Sale.renewal_due_at.is_not(None),
-                   Sale.renewal_due_at >= today,
-                   Sale.renewal_due_at < renew_until)
+            .where(*ren_filters)
             .order_by(Sale.renewal_due_at)
         )
         renewal_reminders = [
@@ -287,13 +320,14 @@ class DashboardService:
             "renewal_reminders": renewal_reminders,
         }
 
-    async def calls_missing_next_call(self, owner_id: str) -> dict:
+    async def calls_missing_next_call(self, owner_id: str | None) -> dict:
         """تماس‌های امروز که اقدام (نتیجه) خورده ولی «تماس بعدی» برایشان تعیین نشده.
 
         برای یادآور دوره‌ای: «☎️ برای فلانی تایم تماس بعدی رو تعیین نکردی».
         تماس‌های «موفق» (فروش‌شده) را نادیده می‌گیریم تا بی‌مورد یادآوری نشود.
+        دامنه: None=مدیر (همه)، در غیر این صورت تماس‌های خودِ کارشناس یا بی‌صاحب.
         """
-        today = _start_of_today()
+        today = _start_of_today_tehran()
         now = datetime.now(tz=timezone.utc)
         future_fu = (
             select(Followup.id)
@@ -301,6 +335,8 @@ class DashboardService:
                    Followup.due_at > now, Followup.status == "pending")
             .correlate(Call).exists()
         )
+        scope = ([] if owner_id is None
+                 else [(Call.agent_id == owner_id) | (Call.agent_id.is_(None))])
         rows = await self._s.execute(
             select(Call.id, Call.caller_number, Student.full_name)
             .outerjoin(Student, Student.id == Call.student_id)
@@ -308,7 +344,7 @@ class DashboardService:
                    Call.outcome.is_not(None),
                    Call.outcome != "successful",
                    Call.status != "missed",
-                   ~future_fu)
+                   ~future_fu, *scope)
             .order_by(Call.started_at.desc())
             .limit(50)
         )

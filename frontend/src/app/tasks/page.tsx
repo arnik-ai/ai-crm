@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
@@ -199,12 +200,12 @@ function NextCallNag({
             <span className="text-slate-700">
               ☎️ برای <b>{n.student_name || n.mobile}</b> تایم تماس بعدی رو تعیین نکردی
             </span>
-            <a
+            <Link
               href="/calls"
               className="shrink-0 rounded-lg bg-rose-500 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-rose-600"
             >
               ثبت نتیجه
-            </a>
+            </Link>
           </div>
         ))}
       </div>

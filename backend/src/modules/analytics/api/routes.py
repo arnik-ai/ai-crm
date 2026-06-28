@@ -70,13 +70,23 @@ async def followups_today(
     return await DashboardService(session).followups_today(owner_id=user.id)
 
 
+def _task_scope(user) -> str | None:
+    """مدیر/ادمین کارهای کلِ تیم را می‌بیند (None)؛ کارشناس فقط مالِ خودش."""
+    if "admin" in user.roles or "sales_manager" in user.roles:
+        return None
+    return user.id
+
+
 @router.get("/tasks")
 async def tasks_today(
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("calls:read")),
 ) -> dict:
-    """کارهای روزِ نیرو (در دسترسِ کارشناس هم هست — مجوز calls:read)."""
-    return await DashboardService(session).tasks_today(owner_id=user.id)
+    """کارهای روزِ نیرو (در دسترسِ کارشناس هم هست — مجوز calls:read).
+
+    کارشناس فقط کارهای خودش را می‌بیند؛ مدیر/ادمین کلِ تیم را.
+    """
+    return await DashboardService(session).tasks_today(owner_id=_task_scope(user))
 
 
 @router.get("/missing-next-call")
@@ -85,7 +95,8 @@ async def missing_next_call(
     user=Depends(require_permission("calls:read")),
 ) -> dict:
     """تماس‌های اقدام‌شده‌ی امروز که «تماس بعدی» برایشان تعیین نشده (برای یادآور)."""
-    return await DashboardService(session).calls_missing_next_call(owner_id=user.id)
+    return await DashboardService(session).calls_missing_next_call(
+        owner_id=_task_scope(user))
 
 
 @router.get("/daily-report")
