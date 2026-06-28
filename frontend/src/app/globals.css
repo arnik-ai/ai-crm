@@ -31,6 +31,13 @@ option {
   color: #1e293b;
 }
 
+/* روی موبایل، فضای پایین برای نوار ناوبریِ پایین (BottomNav) باز شود */
+@media (max-width: 767px) {
+  main {
+    padding-bottom: 4.75rem;
+  }
+}
+
 /* اسکرول‌بار ظریف */
 ::-webkit-scrollbar {
   width: 8px;

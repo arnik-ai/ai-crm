@@ -18,6 +18,38 @@ const items = [
   { href: "/assistant", label: "دستیار هوشمند", icon: Bot, managerOnly: false },
 ];
 
+// آیتم‌های پرکاربردِ نوارِ پایینِ موبایل (دسترسی یک‌لمسی برای همه‌ی نقش‌ها)
+const bottomItems = [
+  { href: "/tasks", label: "کارها", icon: ClipboardList },
+  { href: "/calls", label: "تماس‌ها", icon: Phone },
+  { href: "/students", label: "سرنخ‌ها", icon: Users },
+  { href: "/sales", label: "فروش", icon: ShoppingCart },
+  { href: "/followups", label: "پیگیری", icon: ListTodo },
+];
+
+function BottomNav() {
+  const path = usePathname();
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around border-t border-slate-200 bg-white/95 backdrop-blur md:hidden">
+      {bottomItems.map(({ href, label, icon: Icon }) => {
+        const active = path.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ${
+              active ? "text-blue-600" : "text-slate-500"
+            }`}
+          >
+            <Icon size={20} />
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
   // نقش کاربر را پس از mount می‌خوانیم تا hydration سمت سرور/کلاینت یکسان بماند.
@@ -115,6 +147,9 @@ export function Sidebar() {
           </aside>
         </div>
       )}
+
+      {/* نوار ناوبریِ پایینِ موبایل — دسترسیِ سریع به صفحات پرکاربرد */}
+      <BottomNav />
     </>
   );
 }
