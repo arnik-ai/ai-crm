@@ -370,10 +370,13 @@ class DashboardService:
             pay_cnt[i] = int(r.cnt or 0)
             pay_amt[i] = float(r.amount or 0)
 
-        # میانگین مدت مکالمه
+        # میانگین مدت مکالمه (با انتخاب نیرو، فقط مکالماتِ همان نیرو)
+        avg_conds = [Call.status != "missed"]
+        if agent_id:
+            avg_conds.append(Call.agent_id == agent_id)
         avg_all = await self._s.scalar(
             select(func.coalesce(func.avg(Call.duration_sec), 0))
-            .where(Call.status != "missed")
+            .where(*avg_conds)
         ) or 0
         per_agent_rows = (await self._s.execute(
             select(User.full_name,

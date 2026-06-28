@@ -556,7 +556,7 @@ export default function ReportsPage() {
           </div>
 
           {/* تیترهای کلیدی */}
-          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <div className="rounded-xl bg-emerald-50 p-3">
               <div className="text-xs text-emerald-600">بیشترین واریز در ساعت</div>
               <div className="text-lg font-extrabold text-emerald-700">{peakHour(hourly?.payments_amount)}</div>
@@ -569,8 +569,16 @@ export default function ReportsPage() {
               <div className="text-xs text-rose-600">بیشترین بی‌پاسخ در ساعت</div>
               <div className="text-lg font-extrabold text-rose-700">{peakHour(hourly?.missed)}</div>
             </div>
+            <div className="rounded-xl bg-sky-50 p-3">
+              <div className="text-xs text-sky-600">
+                {hourAgent ? "پراقدام‌ترین ساعتِ نیرو" : "پراقدام‌ترین ساعتِ تماس"}
+              </div>
+              <div className="text-lg font-extrabold text-sky-700">{peakHour(hourly?.calls)}</div>
+            </div>
             <div className="rounded-xl bg-violet-50 p-3">
-              <div className="text-xs text-violet-600">میانگین مکالمه (دقیقه)</div>
+              <div className="text-xs text-violet-600">
+                {hourAgent ? "میانگین مکالمه‌ی نیرو (دقیقه)" : "میانگین مکالمه (دقیقه)"}
+              </div>
               <div className="text-lg font-extrabold text-violet-700">{faNum(hourly?.avg_duration?.overall_min ?? 0)}</div>
             </div>
           </div>
