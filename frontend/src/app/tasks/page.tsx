@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { isDemoMode } from "@/lib/auth";
-import { faNum, faDateTime } from "@/lib/utils";
+import { faNum, faDateTime, faDate } from "@/lib/utils";
 import {
   ClipboardList, CalendarClock, PhoneMissed, PhoneOff, UserPlus, Loader2, Plus,
   AlertTriangle, PhoneForwarded,
@@ -244,7 +244,7 @@ function RenewalReminders({ items }: { items: RenewalItem[] }) {
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-slate-700">{text}</div>
                 <div className="text-[11px] text-slate-400">
-                  روز تمدید: {faDateTime(r.renewal_due_at ?? undefined)}
+                  روز تمدید: {faDate(r.renewal_due_at ?? undefined)}
                   {r.program_months ? ` · برنامه ${faNum(r.program_months)} ماهه` : ""}
                 </div>
               </div>

@@ -7,7 +7,7 @@ import {
 import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
-import { faNum, faDateTime } from "@/lib/utils";
+import { faNum, faDateTime, faDate, faDigits } from "@/lib/utils";
 import { getSession, isManager } from "@/lib/auth";
 import { ExportButton } from "@/components/ExportButton";
 import { exportToExcel } from "@/lib/exportExcel";
@@ -141,7 +141,7 @@ function exportMonthly(monthly?: MonthlyPerformance): void {
   });
   const columns = [
     { key: "کارشناس", label: "کارشناس" },
-    ...months.map((m) => ({ key: m, label: m })),
+    ...months.map((m) => ({ key: m, label: faDigits(m) })),
     { key: "میانگین", label: "میانگین امتیاز" },
     { key: "سطح", label: "سطح" },
   ];
@@ -292,7 +292,7 @@ export default function ReportsPage() {
             <div>
               <h1 className="text-2xl font-extrabold text-white">گزارش روزانه</h1>
               <p className="mt-0.5 text-sm text-slate-300">
-                {rep?.date ?? "—"} · خلاصه‌ی تماس‌ها و عملکرد تیم
+                {faDate(rep?.date)} · خلاصه‌ی تماس‌ها و عملکرد تیم
               </p>
             </div>
           </div>
@@ -415,7 +415,7 @@ export default function ReportsPage() {
             <ExportButton
               rows={perf?.items ?? []}
               columns={[
-                { key: "date", label: "تاریخ" },
+                { key: "date", label: "تاریخ", format: (r: any) => faDate(r.date) },
                 { key: "total", label: "کل تماس" },
                 { key: "sales", label: "فروش روز" },
                 { key: "customers", label: "مشتری" },
@@ -449,7 +449,7 @@ export default function ReportsPage() {
             <tbody>
               {(perf?.items ?? []).map((d: any, i: number) => (
                 <tr key={d.date} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
-                  <td className="p-3 font-medium text-slate-700" dir="ltr">{d.date}</td>
+                  <td className="p-3 font-medium text-slate-700">{faDate(d.date)}</td>
                   <td className="p-3 text-center text-slate-600">{faNum(d.total)}</td>
                   <td className="p-3 text-center font-bold text-green-600">{faNum(d.sales ?? 0)}</td>
                   <td className="p-3 text-center text-sky-600">{faNum(d.customers ?? 0)}</td>
@@ -488,7 +488,7 @@ export default function ReportsPage() {
               <tr>
                 <th className="p-3 text-right font-medium">کارشناس</th>
                 {(monthly?.months ?? []).map((m) => (
-                  <th key={m} className="p-3 text-center font-medium" dir="ltr">{m}</th>
+                  <th key={m} className="p-3 text-center font-medium">{faDigits(m)}</th>
                 ))}
                 <th className="p-3 text-center font-medium">میانگین</th>
                 <th className="p-3 text-center font-medium">سطح</th>

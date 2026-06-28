@@ -27,7 +27,7 @@ export function faDuration(sec?: number): string {
   return faDigits(`${mm}:${ss}`);
 }
 
-/** فرمت تاریخ/زمان فارسی کوتاه. */
+/** فرمت تاریخ/زمان فارسی کوتاه (شمسی — تقویم fa-IR). */
 export function faDateTime(iso?: string): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -36,5 +36,15 @@ export function faDateTime(iso?: string): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+/** فرمت تاریخِ شمسیِ بدون ساعت — مثل «۸ تیر ۱۴۰۵». همیشه شمسی (تقویم fa-IR). */
+export function faDate(iso?: string): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("fa-IR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 }
