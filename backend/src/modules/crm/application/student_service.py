@@ -10,6 +10,7 @@ from src.modules.crm.api.schemas import (
     StudentCreate,
     StudentOut,
     StudentUpdate,
+    _normalize_mobile,
 )
 from src.modules.crm.infrastructure.models import (
     Activity,
@@ -17,6 +18,7 @@ from src.modules.crm.infrastructure.models import (
     Followup,
     Message,
     Note,
+    Sale,
     SalesStage,
     Student,
 )
@@ -319,6 +321,37 @@ class StudentService:
                     "missing": missing,
                 })
         return {"items": items, "count": len(items)}
+
+    async def lookup_by_mobile(self, mobile: str) -> dict:
+        """جست‌وجوی موبایل: آیا از قبل ثبت شده؟ نام، تاریخ ثبت و خریدهای قبلی.
+
+        برای: پرکردنِ خودکارِ نام، هشدارِ «تکراری» در «کارهای روز»، و پیامِ
+        «دوباره فروختی» در «ثبت فیش».
+        """
+        m = _normalize_mobile(mobile)
+        student = await self._s.scalar(
+            select(Student).where(Student.mobile == m, Student.deleted_at.is_(None))
+        )
+        if student is None:
+            return {"exists": False, "mobile": m}
+        sale_rows = (await self._s.execute(
+            select(Sale.product, Sale.amount, Sale.sold_at)
+            .where((Sale.student_id == student.id) | (Sale.mobile == m))
+            .order_by(Sale.sold_at.desc())
+        )).all()
+        return {
+            "exists": True,
+            "mobile": m,
+            "student_id": str(student.id),
+            "student_name": student.full_name,
+            "created_at": student.created_at.isoformat() if student.created_at else None,
+            "purchase_count": len(sale_rows),
+            "purchases": [
+                {"product": p, "amount": float(a) if a is not None else 0.0,
+                 "date": d.isoformat() if d else None}
+                for p, a, d in sale_rows
+            ],
+        }
 
     async def find_or_create_by_mobile(
         self, mobile: str, full_name: str | None = None,

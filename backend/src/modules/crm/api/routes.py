@@ -87,6 +87,16 @@ async def list_incomplete_students(
     return await StudentService(session).list_incomplete()
 
 
+@router.get("/students/lookup")
+async def lookup_student(
+    mobile: str,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """جست‌وجوی موبایل: نام، تاریخ ثبت و خریدهای قبلی (برای پرکردن خودکار + هشدارها)."""
+    return await StudentService(session).lookup_by_mobile(mobile)
+
+
 @router.post("/students", response_model=StudentOut, status_code=201)
 async def create_student(
     body: StudentCreate,

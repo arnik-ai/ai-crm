@@ -199,6 +199,8 @@ export default function CallsPage() {
   const [filter, setFilter] = useState("all");
   // تماسی که مودال «ثبت نتیجه» برایش باز است (null = بسته)
   const [outcomeCall, setOutcomeCall] = useState<Call | null>(null);
+  // تماسی که مودال «ویرایش/تکمیل اطلاعات» برایش باز است
+  const [editCall, setEditCall] = useState<Call | null>(null);
 
   // شمارش برای کارت‌های آماری
   const counts = useMemo(() => ({
@@ -328,6 +330,15 @@ export default function CallsPage() {
                   >
                     <ClipboardCheck size={14} /> ثبت نتیجه
                   </button>
+                  {c.student_id && (
+                    <button
+                      onClick={() => setEditCall(c)}
+                      className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
+                      title="ویرایش / تکمیل اطلاعات"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
                   {c.status !== "missed" && (
                     <button
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
@@ -410,6 +421,9 @@ export default function CallsPage() {
 
         {outcomeCall && (
           <OutcomeModal call={outcomeCall} onClose={() => setOutcomeCall(null)} />
+        )}
+        {editCall && (
+          <EditStudentModal call={editCall} onClose={() => setEditCall(null)} />
         )}
       </main>
     </div>
@@ -727,6 +741,98 @@ function OutcomeModal({ call, onClose }: { call: Call; onClose: () => void }) {
               className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
             >
               {loading && <Loader2 size={15} className="animate-spin" />} ثبت نتیجه
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- مودال ویرایش/تکمیل اطلاعات دانشجو (از صفحه‌ی تماس‌ها) ---------- */
+const EDIT_FIELDS = ["تجربی", "ریاضی", "انسانی", "سایر"];
+const EDIT_GRADES = ["دهم", "یازدهم", "دوازدهم", "فارغ‌التحصیل", "سایر"];
+const EDIT_SOURCES = ["سایت", "اینستاگرام", "تلگرام", "روبیکا", "بله", "پیامک", "سایر"];
+
+function EditStudentModal({ call, onClose }: { call: Call; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [fullName, setFullName] = useState(call.student_name ?? "");
+  const [city, setCity] = useState(call.city ?? "");
+  const [fld, setFld] = useState(call.field ?? "");
+  const [grade, setGrade] = useState(call.grade ?? "");
+  const [goal, setGoal] = useState(call.goal ?? "");
+  const [gpa, setGpa] = useState(call.gpa != null ? String(call.gpa) : "");
+  const [source, setSource] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg("");
+    setLoading(true);
+    try {
+      if (DEMO) { setMsg("در حالت نمایشی ذخیره نمی‌شود."); setLoading(false); return; }
+      await api.patch(`/students/${call.student_id}`, {
+        full_name: fullName || null,
+        city: city || null,
+        field: fld || null,
+        grade: grade || null,
+        goal: goal || null,
+        gpa: gpa ? Number(gpa) : null,
+        lead_source: source || null,
+      });
+      qc.invalidateQueries({ queryKey: ["calls"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      onClose();
+    } catch {
+      setMsg("ذخیره ناموفق بود.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <Pencil size={18} className="text-blue-600" /> ویرایش / تکمیل اطلاعات
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <p className="mb-4 text-sm text-slate-500" dir="ltr">{call.caller_number}</p>
+        <form onSubmit={submit} className="space-y-3">
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="نام و نام خانوادگی"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <select value={fld} onChange={(e) => setFld(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">رشته…</option>
+              {EDIT_FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            <select value={grade} onChange={(e) => setGrade(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">پایه…</option>
+              {EDIT_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="هدف"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <input value={gpa} onChange={(e) => setGpa(e.target.value)} type="number" placeholder="معدل" min={0} max={20} step="0.01"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" dir="ltr" />
+            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="شهر"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          </div>
+          <select value={source} onChange={(e) => setSource(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+            <option value="">منبع تماس…</option>
+            {EDIT_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
+            <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">انصراف</button>
+            <button disabled={loading} className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60">
+              {loading && <Loader2 size={15} className="animate-spin" />} ذخیره
             </button>
           </div>
         </form>

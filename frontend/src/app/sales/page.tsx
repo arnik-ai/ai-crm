@@ -11,7 +11,7 @@ import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import { InstallmentsTab } from "@/components/InstallmentsTab";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
-import { faNum, faDateTime, faDigits } from "@/lib/utils";
+import { faNum, faDateTime, faDigits, faDate } from "@/lib/utils";
 import { Search, ShoppingCart, Receipt, CreditCard, CalendarRange, Plus, X, Loader2 } from "lucide-react";
 
 const DEMO = isDemoMode();
@@ -59,6 +59,14 @@ type SalesMeta = {
   products: string[];
   accounts: string[];
   program_months: number[];
+};
+
+type LookupResult = {
+  exists: boolean;
+  student_name?: string | null;
+  created_at?: string | null;
+  purchase_count?: number;
+  purchases?: { product: string; amount: number; date: string | null }[];
 };
 
 const PAGE_SIZE = 20;
@@ -324,6 +332,17 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   const [paymentRef, setPaymentRef] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // نتیجه‌ی جست‌وجوی موبایل (مشتریِ تکراری → پرکردنِ نام + پیام خرید قبلی)
+  const [lookup, setLookup] = useState<LookupResult | null>(null);
+
+  async function onMobileBlur() {
+    if (DEMO || mobile.trim().length < 8) return;
+    try {
+      const res = (await api.get(`/students/lookup?mobile=${encodeURIComponent(mobile)}`)).data;
+      setLookup(res);
+      if (res.exists && res.student_name && !studentName.trim()) setStudentName(res.student_name);
+    } catch { /* بی‌صدا */ }
+  }
 
   function toggle(product: string) {
     setSel((s) => {
@@ -401,11 +420,26 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
             type="tel"
             placeholder="شماره تلفن (مثلاً ۰۹۱۲۳۴۵۶۷۸۹)"
             value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
+            onChange={(e) => { setMobile(e.target.value); setLookup(null); }}
+            onBlur={onMobileBlur}
             className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
             dir="ltr"
             required
           />
+          {/* مشتریِ تکراری: پیام «دوباره فروختی» + خرید قبلی */}
+          {lookup?.exists && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+              👌 تبریک، دوباره فروختی! <b>{lookup.student_name || "این شخص"}</b> از قبل ثبت شده
+              {lookup.created_at ? ` (تاریخ ثبت: ${faDate(lookup.created_at)})` : ""}
+              {typeof lookup.purchase_count === "number" && lookup.purchase_count > 0
+                ? ` و تا حالا ${faNum(lookup.purchase_count)} خرید داشته.` : "."}
+              {lookup.purchases?.[0] && (
+                <div className="mt-1 text-amber-700">
+                  آخرین خرید: {lookup.purchases[0].product} — {showDate(lookup.purchases[0].date)}
+                </div>
+              )}
+            </div>
+          )}
           {/* تاریخ فروش (اختیاری — خالی = امروز) */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-slate-500">تاریخ فروش:</span>

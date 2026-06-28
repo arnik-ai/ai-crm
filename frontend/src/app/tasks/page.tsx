@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDate } from "@/lib/utils";
+// (faDate برای نمایشِ تاریخِ ثبتِ شماره‌ی تکراری)
 import {
   ClipboardList, CalendarClock, PhoneMissed, PhoneOff, UserPlus, Loader2, Plus,
   AlertTriangle, PhoneForwarded,
@@ -314,6 +315,20 @@ function NewNumberBox() {
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  // شماره‌ی تکراری: {نام، تاریخ ثبت}
+  const [dup, setDup] = useState<{ student_name: string | null; created_at: string | null } | null>(null);
+
+  async function onMobileBlur() {
+    setDup(null);
+    if (DEMO || mobile.trim().length < 8) return;
+    try {
+      const res = (await api.get(`/students/lookup?mobile=${encodeURIComponent(mobile)}`)).data;
+      if (res.exists) {
+        setDup({ student_name: res.student_name, created_at: res.created_at });
+        if (res.student_name && !fullName.trim()) setFullName(res.student_name);
+      }
+    } catch { /* بی‌صدا */ }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -326,7 +341,7 @@ function NewNumberBox() {
       await api.post("/students", {
         full_name: fullName || null, mobile, lead_source: source || null,
       });
-      setFullName(""); setMobile(""); setSource("");
+      setFullName(""); setMobile(""); setSource(""); setDup(null);
       setMsg("شماره ثبت شد ✓");
       qc.invalidateQueries({ queryKey: ["students"] });
     } catch {
@@ -363,7 +378,8 @@ function NewNumberBox() {
             type="tel"
             placeholder="موبایل"
             value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
+            onChange={(e) => { setMobile(e.target.value); setDup(null); }}
+            onBlur={onMobileBlur}
             className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400"
             dir="ltr"
             required
@@ -388,6 +404,14 @@ function NewNumberBox() {
             {loading && <Loader2 size={15} className="animate-spin" />} ثبت
           </button>
           {msg && <span className="text-xs text-slate-500">{msg}</span>}
+          {/* هشدار شماره‌ی تکراری */}
+          {dup && (
+            <div className="w-full rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-sm text-amber-800">
+              ⚠️ این شماره <b>تکراری</b> است
+              {dup.student_name ? ` — «${dup.student_name}»` : ""}
+              {dup.created_at ? ` در تاریخ ${faDate(dup.created_at)} ثبت شده.` : " قبلاً ثبت شده."}
+            </div>
+          )}
         </form>
       )}
     </div>
