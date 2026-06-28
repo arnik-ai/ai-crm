@@ -142,6 +142,17 @@ docs/     → ۱۲ سند معماری فارسی
     نتیجه‌ی تماس (پیکر شمسی + input ساعت → ISO). حالا **هیچ `<input type=date/datetime>`
     میلادی در کل فرانت نمانده.**
 
+25. **فیش فروش چندمحصولی + اسناد واریز + تاریخ فروش (commit `567e4a7`)** —
+    - **چندمحصولی:** هر فیش می‌تواند چند محصول داشته باشد، هرکدام با مبلغِ جداگانه
+      (جدول جدید `sale_items`). `Sale.amount` = جمعِ آیتم‌ها، `Sale.product` خلاصه
+      (تک=نام، چند=«چند محصول»). جمعِ «برنامه»/«دوره» از `sale_items` (GROUP BY product)
+      تا فیشِ ترکیبی هم دقیق باشد. ⚠️ گزارش‌های timeline/repeat/export سطحِ Sale می‌مانند.
+    - **اسناد واریز** (جای «نوع پرداخت» که حذف شد): `deposited_at` (ساعت+تاریخ)،
+      `payer_card`، `dest_account` (لیست کشوییِ حساب‌های ما `DEST_ACCOUNTS` — ⚠️ مقادیر
+      نمونه‌اند، با حساب‌های واقعی جایگزین شوند)، و `payment_ref` (نگه داشته شد).
+    - **تاریخ فروش** اختیاری (خالی=اکنون) با تقویم شمسی.
+    - migration `0006` (idempotent) + schema.sql. هیچ تستی روی sales نبود.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
@@ -179,6 +190,9 @@ BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, Jal
 ## 📜 تاریخچه‌ی Commitها
 
 ```
+567e4a7 فیش فروش چندمحصولی + اسناد واریز (sale_items) + تاریخ فروش
+57ab4e3 حذف کارت «مجموع کل فروش» (فقط جمع‌های جدا)
+9574794 برچسب «جمع فروش دوره/برنامه»
 9d08af4 تقویم‌نمای شمسی برای ورودی‌های تاریخ (lib/jalali.ts + JalaliDatePicker)
 87c9d96 قوانین طلایی «تاریخ همیشه شمسی» و «همیشه RTL فارسی»
 5e13c57 همه‌ی تاریخ‌های نمایشی شمسی + رعایت RTL فارسی
