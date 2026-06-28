@@ -103,7 +103,13 @@ class Activity(Base):
 
 
 class Sale(Base):
-    """فیشِ فروش — ثبت واقعی فروش با محصول، مدت برنامه و جزئیات واریز."""
+    """فیشِ فروش — سرستونِ یک رسید؛ محصولاتِ خریداری‌شده در جدول sale_items هستند.
+
+    «مبلغ جدا برای هر محصول» (درخواست کارفرما) → هر محصول یک ردیف در sale_items.
+    `amount` اینجا = جمعِ مبالغِ آیتم‌ها (برای سازگاری و سرعتِ کوئری‌های جمع کل).
+    `product`/`program_months` نیز برای سازگاری با گزارش‌ها نگه داشته می‌شوند
+    (تک‌محصولی = همان محصول؛ چندمحصولی = «چند محصول»).
+    """
     __tablename__ = "sales"
     tenant_id: Mapped[UUID | None] = mapped_column(nullable=True)
     student_id: Mapped[UUID | None] = mapped_column(
@@ -113,17 +119,37 @@ class Sale(Base):
     # نام/موبایل به‌صورت snapshot هم ذخیره می‌شوند (برای فیش مستقل از سرنخ)
     student_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     mobile: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
-    # محصول از لیست ثابت؛ برای «برنامه» مدت ماه پر می‌شود
+    # خلاصه‌ی محصول (سازگاری/نمایش): تک‌محصولی=نام محصول، چندمحصولی=«چند محصول»
+    product: Mapped[str] = mapped_column(String(100))
+    program_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    amount: Mapped[float] = mapped_column(Numeric(14, 0), default=0)  # جمع آیتم‌ها
+    # نوع پرداخت دیگر استفاده نمی‌شود (به‌جایش اسناد واریزِ زیر) — ستون برای سازگاری مانده
+    payment_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    payment_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # اسناد واریز (درخواست کارفرما)
+    deposited_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)  # ساعت+تاریخِ واریز
+    payer_card: Mapped[str | None] = mapped_column(String(50), nullable=True)  # کارت واریزکننده
+    dest_account: Mapped[str | None] = mapped_column(String(100), nullable=True)  # بانک مقصد (حساب ما)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sold_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # موعد تمدید (فقط برای برنامه): sold_at + program_months — برای یادآوری
+    renewal_due_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True)
+
+
+class SaleItem(Base):
+    """آیتمِ یک فیش فروش — یک محصول با مبلغِ جداگانه‌ی خودش.
+
+    «مبلغ جدا برای هر محصول»: جمعِ تفکیکیِ «برنامه» و «دوره» از همین جدول
+    (GROUP BY روی product) محاسبه می‌شود تا دقیق بماند حتی برای فیشِ ترکیبی.
+    """
+    __tablename__ = "sale_items"
+    sale_id: Mapped[UUID] = mapped_column(
+        ForeignKey("sales.id", ondelete="CASCADE"), index=True)
     product: Mapped[str] = mapped_column(String(100))
     program_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(14, 0), default=0)
-    payment_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    payment_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    sold_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    # موعد تمدید (فقط برای برنامه): sold_at + program_months — برای یادآوری فاز ۲
-    renewal_due_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True, index=True)
 
 
 class Message(Base):

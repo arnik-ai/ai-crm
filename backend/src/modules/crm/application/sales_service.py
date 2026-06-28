@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.crm.api.schemas import PROGRAM_PRODUCT, SaleCreate
 from src.modules.crm.application.student_service import StudentService
-from src.modules.crm.infrastructure.models import Followup, Sale, Student
+from src.modules.crm.infrastructure.models import Followup, Sale, SaleItem, Student
 from src.modules.telephony.infrastructure.models import Call
 from src.shared.security.audit import record_audit
 
@@ -35,10 +35,21 @@ class SalesService:
         self._s = session
 
     async def create_sale(self, body: SaleCreate, agent_id: str) -> dict:
-        sold_at = datetime.now(tz=timezone.utc)
+        # تاریخ فروش: اگر کاربر تعیین کرده همان، وگرنه اکنون
+        sold_at = body.sold_at or datetime.now(tz=timezone.utc)
+        if sold_at.tzinfo is None:
+            sold_at = sold_at.replace(tzinfo=timezone.utc)
+        total = sum(it.amount for it in body.items)
+        # خلاصه‌ی محصول/مدت برای سازگاری و نمایش
+        program_item = next(
+            (it for it in body.items if it.product == PROGRAM_PRODUCT), None)
+        summary_product = (
+            body.items[0].product if len(body.items) == 1 else "چند محصول")
+        summary_months = program_item.program_months if program_item else None
+        # موعد تمدید فقط اگر «برنامه» در فیش باشد (از مدتِ همان آیتم)
         renewal_due = None
-        if body.product == PROGRAM_PRODUCT and body.program_months:
-            renewal_due = _add_months(sold_at, body.program_months)
+        if program_item and program_item.program_months:
+            renewal_due = _add_months(sold_at, program_item.program_months)
 
         # فیش را به دانشجو وصل می‌کنیم (اگر نبود، با موبایل ساخته می‌شود)
         student_id = body.student_id
@@ -52,11 +63,13 @@ class SalesService:
             agent_id=agent_id,
             student_name=body.student_name,
             mobile=body.mobile,
-            product=body.product,
-            program_months=body.program_months,
-            amount=body.amount,
-            payment_method=body.payment_method,
+            product=summary_product,
+            program_months=summary_months,
+            amount=total,
             payment_ref=body.payment_ref,
+            deposited_at=body.deposited_at,
+            payer_card=body.payer_card,
+            dest_account=body.dest_account,
             note=body.note,
             sold_at=sold_at,
             renewal_due_at=renewal_due,
@@ -64,19 +77,32 @@ class SalesService:
         self._s.add(sale)
         await self._s.flush()
 
+        # آیتم‌های فیش (هر محصول با مبلغِ خودش)
+        for it in body.items:
+            self._s.add(SaleItem(
+                sale_id=sale.id, product=it.product,
+                program_months=it.program_months, amount=it.amount,
+            ))
+
         # تماس پیگیری خودکار چند روز پس از خرید → در «کارهای روز» دیده می‌شود
         if student_id is not None:
             self._s.add(Followup(
                 student_id=student_id, owner_id=agent_id,
                 due_at=sold_at + timedelta(days=FOLLOWUP_DAYS_AFTER_SALE),
-                note=f"پیگیری پس از خرید ({body.product})",
+                note=f"پیگیری پس از خرید ({summary_product})",
             ))
 
         await record_audit(self._s, actor_id=agent_id, action="create",
                            entity="sale", entity_id=str(sale.id),
-                           diff={"product": body.product, "amount": body.amount})
+                           diff={"product": summary_product, "amount": total})
         await self._s.commit()
-        return self._to_dict(sale)
+        result = self._to_dict(sale)
+        result["items"] = [
+            {"product": it.product, "program_months": it.program_months,
+             "amount": float(it.amount)}
+            for it in body.items
+        ]
+        return result
 
     async def list_sales(self, page: int, size: int) -> dict:
         stmt = select(Sale).order_by(Sale.sold_at.desc())
@@ -86,20 +112,42 @@ class SalesService:
         total_amount = await self._s.scalar(
             select(func.coalesce(func.sum(Sale.amount), 0))
         ) or 0
-        # جمع تفکیکی: «برنامه»ها باهم، بقیه‌ی محصولات جدا (درخواست کارفرما)
+        # جمع تفکیکی از آیتم‌ها (مبلغِ هر محصول): «برنامه» جدا، «دوره» (غیربرنامه) جدا.
+        # از sale_items خوانده می‌شود تا حتی برای فیشِ ترکیبی هم دقیق باشد.
         total_program = await self._s.scalar(
-            select(func.coalesce(func.sum(Sale.amount), 0))
-            .where(Sale.product == PROGRAM_PRODUCT)
+            select(func.coalesce(func.sum(SaleItem.amount), 0))
+            .where(SaleItem.product == PROGRAM_PRODUCT)
         ) or 0
         total_other = await self._s.scalar(
-            select(func.coalesce(func.sum(Sale.amount), 0))
-            .where(Sale.product != PROGRAM_PRODUCT)
+            select(func.coalesce(func.sum(SaleItem.amount), 0))
+            .where(SaleItem.product != PROGRAM_PRODUCT)
         ) or 0
         rows = (await self._s.execute(
             stmt.offset((page - 1) * size).limit(size)
         )).scalars().all()
+
+        # آیتم‌های همین صفحه را یک‌جا می‌گیریم (نه N کوئری)
+        sale_ids = [s.id for s in rows]
+        items_by_sale: dict = {}
+        if sale_ids:
+            item_rows = (await self._s.execute(
+                select(SaleItem.sale_id, SaleItem.product,
+                       SaleItem.program_months, SaleItem.amount)
+                .where(SaleItem.sale_id.in_(sale_ids))
+            )).all()
+            for sid, product, months, amount in item_rows:
+                items_by_sale.setdefault(sid, []).append({
+                    "product": product, "program_months": months,
+                    "amount": float(amount) if amount is not None else 0.0,
+                })
+
+        out_items = []
+        for s in rows:
+            d = self._to_dict(s)
+            d["items"] = items_by_sale.get(s.id, [])
+            out_items.append(d)
         return {
-            "items": [self._to_dict(s) for s in rows],
+            "items": out_items,
             "total_amount": float(total_amount),
             "total_program": float(total_program),
             "total_other": float(total_other),
@@ -109,10 +157,11 @@ class SalesService:
         }
 
     def export_sales_query(self):
-        """کوئری همه‌ی فروش‌ها برای خروجی استریم‌شده."""
+        """کوئری همه‌ی فروش‌ها برای خروجی استریم‌شده (سطحِ فیش؛ مبلغ = جمع آیتم‌ها)."""
         return select(
             Sale.student_name, Sale.mobile, Sale.sold_at, Sale.product,
-            Sale.program_months, Sale.amount, Sale.payment_method, Sale.payment_ref,
+            Sale.program_months, Sale.amount, Sale.payer_card,
+            Sale.dest_account, Sale.payment_ref,
         ).order_by(Sale.sold_at.desc())
 
     async def purchase_timeline(self, limit: int = 100) -> dict:
@@ -222,8 +271,11 @@ class SalesService:
             "product": s.product,
             "program_months": s.program_months,
             "amount": float(s.amount) if s.amount is not None else 0.0,
-            "payment": s.payment_method,
+            "items": [],
             "payment_ref": s.payment_ref,
+            "deposited_at": s.deposited_at.isoformat() if s.deposited_at else None,
+            "payer_card": s.payer_card,
+            "dest_account": s.dest_account,
             "date": s.sold_at.isoformat() if s.sold_at else None,
             "renewal_due": s.renewal_due_at.isoformat() if s.renewal_due_at else None,
         }

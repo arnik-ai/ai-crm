@@ -152,6 +152,9 @@ CREATE TABLE sales (
     amount          numeric(14,0) NOT NULL DEFAULT 0,
     payment_method  text,
     payment_ref     text,
+    deposited_at    timestamptz,
+    payer_card      text,
+    dest_account    text,
     note            text,
     sold_at         timestamptz NOT NULL DEFAULT now(),
     renewal_due_at  timestamptz,
@@ -162,6 +165,19 @@ CREATE INDEX ix_sales_sold    ON sales(sold_at DESC);
 CREATE INDEX ix_sales_agent   ON sales(agent_id);
 CREATE INDEX ix_sales_student ON sales(student_id);
 CREATE INDEX ix_sales_renewal ON sales(renewal_due_at) WHERE renewal_due_at IS NOT NULL;
+
+-- آیتم‌های فیش فروش (مبلغ جدا برای هر محصول)
+CREATE TABLE sale_items (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    sale_id         uuid NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+    product         text NOT NULL,
+    program_months  int,
+    amount          numeric(14,0) NOT NULL DEFAULT 0,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_sale_items_sale    ON sale_items(sale_id);
+CREATE INDEX ix_sale_items_product ON sale_items(product);
 
 CREATE TABLE messages (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),

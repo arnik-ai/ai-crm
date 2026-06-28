@@ -7,10 +7,11 @@ import { BackButton } from "@/components/BackButton";
 import { Pagination } from "@/components/Pagination";
 import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
+import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDigits } from "@/lib/utils";
-import { Search, ShoppingCart, Receipt, Wallet, CreditCard, CalendarRange, Plus, X, Loader2 } from "lucide-react";
+import { Search, ShoppingCart, Receipt, CreditCard, CalendarRange, Plus, X, Loader2, Trash2 } from "lucide-react";
 
 const DEMO = isDemoMode();
 const PROGRAM = "برنامه";
@@ -21,16 +22,25 @@ function showDate(s?: string | null): string {
   return /^\d{4}-\d{2}-\d{2}T/.test(s) ? faDateTime(s) : s;
 }
 
+type SaleItem = {
+  product: string;
+  program_months: number | null;
+  amount: number;
+};
+
 type Sale = {
   id: string;
   student_name: string | null;
   mobile: string | null;
   date: string;
-  product: string | null;
+  product: string | null;       // خلاصه (تک‌محصولی=نام، چندمحصولی=«چند محصول»)
   program_months: number | null;
-  amount: number;
-  payment: string | null;
+  amount: number;               // جمع کل فیش
+  items: SaleItem[];
   payment_ref: string | null;
+  deposited_at: string | null;
+  payer_card: string | null;
+  dest_account: string | null;
   renewal_due: string | null;
 };
 
@@ -46,26 +56,11 @@ type SalesResponse = {
 
 type SalesMeta = {
   products: string[];
-  payment_methods: string[];
+  accounts: string[];
   program_months: number[];
 };
 
 const PAGE_SIZE = 20;
-
-function PaymentBadge({ payment }: { payment?: string | null }) {
-  if (!payment) return <span className="text-slate-300">—</span>;
-  const tone: Record<string, string> = {
-    "کارت به کارت": "bg-blue-50 text-blue-600",
-    "اقساط": "bg-amber-50 text-amber-600",
-    "درگاه آنلاین": "bg-emerald-50 text-emerald-600",
-    "نقدی": "bg-violet-50 text-violet-600",
-  };
-  return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${tone[payment] ?? "bg-slate-100 text-slate-600"}`}>
-      {payment}
-    </span>
-  );
-}
 
 /** فرمت مبلغ تومان (نمایش به میلیون برای خوانایی). */
 function amountMillions(n: number): string {
@@ -73,16 +68,21 @@ function amountMillions(n: number): string {
   return `${faNum(m)} م تومان`;
 }
 
-const FILTERS = ["همه", "کارت به کارت", "اقساط", "درگاه آنلاین"];
+/** خلاصه‌ی نام محصولاتِ یک فیش (برای جستجو/خروجی). */
+function productsText(s: Sale): string {
+  if (s.items?.length) return s.items.map((it) => it.product).join("، ");
+  return s.product ?? "";
+}
 
 const EXCEL_COLUMNS: ExcelColumn<Sale>[] = [
   { key: "student_name", label: "نام مشتری" },
   { key: "mobile", label: "موبایل" },
   { key: "date", label: "تاریخ", format: (s) => showDate(s.date) },
-  { key: "product", label: "محصول" },
-  { key: "program_months", label: "مدت (ماه)", format: (s) => s.program_months ?? "" },
-  { key: "amount", label: "مبلغ (تومان)", format: (s) => s.amount ?? 0 },
-  { key: "payment", label: "نوع پرداخت" },
+  { key: "product", label: "محصول", format: (s) => productsText(s) },
+  { key: "amount", label: "مبلغ کل (تومان)", format: (s) => s.amount ?? 0 },
+  { key: "payer_card", label: "کارت واریزکننده" },
+  { key: "dest_account", label: "بانک مقصد" },
+  { key: "deposited_at", label: "تاریخ واریز", format: (s) => showDate(s.deposited_at) },
   { key: "payment_ref", label: "جزئیات واریز" },
 ];
 
@@ -97,25 +97,22 @@ export default function SalesPage() {
   });
 
   const [q, setQ] = useState("");
-  const [payment, setPayment] = useState("همه");
   const [showAdd, setShowAdd] = useState(false);
 
   const items: Sale[] = useMemo(() => {
     let list: Sale[] = data?.items ?? [];
-    if (payment !== "همه") list = list.filter((s) => s.payment === payment);
     if (q.trim()) {
       const k = q.trim();
       list = list.filter(
         (s) =>
           (s.student_name ?? "").includes(k) ||
           (s.mobile ?? "").includes(k) ||
-          (s.product ?? "").includes(k)
+          productsText(s).includes(k)
       );
     }
     return list;
-  }, [data, q, payment]);
+  }, [data, q]);
 
-  const totalAmount = data?.total_amount ?? 0;
   const totalProgram = data?.total_program ?? 0;
   const totalOther = data?.total_other ?? 0;
   const count = data?.count ?? items.length;
@@ -175,7 +172,7 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* نوار جستجو و فیلتر */}
+        {/* نوار جستجو */}
         <div className="panel-toolbar mb-4 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 sm:max-w-xs">
             <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -186,34 +183,19 @@ export default function SalesPage() {
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-9 pl-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
             />
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setPayment(f)}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                  payment === f
-                    ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* جدول فروش */}
         <div className="overflow-x-auto rounded-2xl border border-emerald-100 bg-white shadow-sm">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-gradient-to-l from-emerald-50 to-green-50 text-slate-600">
               <tr>
                 <th className="p-3.5 text-right font-medium">دانشجو</th>
                 <th className="p-3.5 text-right font-medium">تاریخ</th>
-                <th className="p-3.5 text-right font-medium">محصول</th>
-                <th className="p-3.5 text-center font-medium">مدت</th>
-                <th className="p-3.5 text-center font-medium">مبلغ</th>
-                <th className="p-3.5 text-right font-medium">نوع پرداخت</th>
+                <th className="p-3.5 text-right font-medium">محصول(ها)</th>
+                <th className="p-3.5 text-center font-medium">مبلغ کل</th>
+                <th className="p-3.5 text-right font-medium">کارت واریزکننده</th>
+                <th className="p-3.5 text-right font-medium">بانک مقصد</th>
                 <th className="p-3.5 text-right font-medium">جزئیات واریز</th>
               </tr>
             </thead>
@@ -225,26 +207,36 @@ export default function SalesPage() {
                     i % 2 === 1 ? "bg-slate-50/40" : ""
                   }`}
                 >
-                  <td className="p-3.5">
+                  <td className="p-3.5 align-top">
                     <div className="font-medium text-slate-700">{s.student_name ?? "—"}</div>
                     <div className="text-xs text-slate-400" dir="ltr">{s.mobile || "—"}</div>
                   </td>
-                  <td className="p-3.5 text-slate-600">{showDate(s.date)}</td>
-                  <td className="p-3.5">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                      s.product === PROGRAM ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"
-                    }`}>
-                      {s.product ?? "—"}
-                    </span>
+                  <td className="p-3.5 align-top text-slate-600">
+                    {showDate(s.date)}
+                    {s.deposited_at && (
+                      <div className="text-[11px] text-slate-400">واریز: {showDate(s.deposited_at)}</div>
+                    )}
                   </td>
-                  <td className="p-3.5 text-center text-slate-600">
-                    {s.program_months ? `${faNum(s.program_months)} ماه` : "—"}
+                  <td className="p-3.5 align-top">
+                    <div className="flex flex-col gap-1">
+                      {(s.items?.length ? s.items : [{ product: s.product ?? "—", program_months: s.program_months, amount: s.amount }]).map((it, k) => (
+                        <div key={k} className="flex items-center gap-2">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            it.product === PROGRAM ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"
+                          }`}>
+                            {it.product}{it.program_months ? ` · ${faNum(it.program_months)} ماه` : ""}
+                          </span>
+                          <span className="text-xs text-slate-400">{amountMillions(it.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </td>
-                  <td className="p-3.5 text-center font-extrabold text-emerald-600">
+                  <td className="p-3.5 align-top text-center font-extrabold text-emerald-600">
                     {amountMillions(s.amount)}
                   </td>
-                  <td className="p-3.5"><PaymentBadge payment={s.payment} /></td>
-                  <td className="p-3.5 text-slate-500" dir="ltr">{s.payment_ref ? faDigits(s.payment_ref) : "—"}</td>
+                  <td className="p-3.5 align-top text-slate-500" dir="ltr">{s.payer_card ? faDigits(s.payer_card) : "—"}</td>
+                  <td className="p-3.5 align-top text-slate-600">{s.dest_account ?? "—"}</td>
+                  <td className="p-3.5 align-top text-slate-500" dir="ltr">{s.payment_ref ? faDigits(s.payment_ref) : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -258,7 +250,7 @@ export default function SalesPage() {
           )}
         </div>
 
-        {q.trim() === "" && payment === "همه" && (
+        {q.trim() === "" && (
           <Pagination
             page={data?.page ?? page}
             size={data?.size ?? PAGE_SIZE}
@@ -278,7 +270,9 @@ export default function SalesPage() {
   );
 }
 
-/* ---------- مودال ثبت فیش ---------- */
+/* ---------- مودال ثبت فیش (چندمحصولی + اسناد واریز) ---------- */
+type ItemRow = { product: string; months: number | ""; amount: string };
+
 function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const { data: meta } = useQuery<SalesMeta>({
     queryKey: ["sales-meta"],
@@ -287,22 +281,34 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
 
   const [studentName, setStudentName] = useState("");
   const [mobile, setMobile] = useState("");
-  const [product, setProduct] = useState("");
-  const [months, setMonths] = useState<number | "">("");
-  const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
+  const [saleDate, setSaleDate] = useState(""); // تاریخ فروش (ISO میلادی از پیکر شمسی)
+  const [rows, setRows] = useState<ItemRow[]>([{ product: "", months: "", amount: "" }]);
+  const [depDate, setDepDate] = useState(""); // ISO میلادی از پیکر شمسی
+  const [depTime, setDepTime] = useState(""); // HH:MM
+  const [payerCard, setPayerCard] = useState("");
+  const [destAccount, setDestAccount] = useState("");
   const [paymentRef, setPaymentRef] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const isProgram = product === PROGRAM;
+  function setRow(i: number, patch: Partial<ItemRow>) {
+    setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    setRows((rs) => [...rs, { product: "", months: "", amount: "" }]);
+  }
+  function removeRow(i: number) {
+    setRows((rs) => (rs.length > 1 ? rs.filter((_, k) => k !== i) : rs));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (isProgram && !months) {
-      setError("برای «برنامه»، مدت (ماه) را انتخاب کنید.");
-      return;
+    // اعتبارسنجی هر ردیفِ محصول
+    for (const r of rows) {
+      if (!r.product) { setError("محصولِ هر ردیف را انتخاب کنید."); return; }
+      if (r.product === PROGRAM && !r.months) { setError("برای «برنامه»، مدت (ماه) را انتخاب کنید."); return; }
+      if (!r.amount || Number(r.amount) <= 0) { setError("مبلغِ هر محصول را وارد کنید."); return; }
     }
     setLoading(true);
     try {
@@ -311,13 +317,22 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
         onClose();
         return;
       }
+      const depositedAt = depDate
+        ? new Date(`${depDate}T${depTime || "00:00"}`).toISOString()
+        : null;
       await api.post("/sales", {
         student_name: studentName,
         mobile,
-        product,
-        program_months: isProgram ? months : null,
-        amount: Number(amount) || 0,
-        payment_method: paymentMethod || null,
+        // ساعت ۱۲ ظهر تا با جابه‌جاییِ منطقه‌ی زمانی، روزِ فروش تغییر نکند
+        sold_at: saleDate ? new Date(`${saleDate}T12:00`).toISOString() : null,
+        items: rows.map((r) => ({
+          product: r.product,
+          program_months: r.product === PROGRAM ? r.months : null,
+          amount: Number(r.amount) || 0,
+        })),
+        deposited_at: depositedAt,
+        payer_card: payerCard || null,
+        dest_account: destAccount || null,
         payment_ref: paymentRef || null,
       });
       onAdded();
@@ -328,16 +343,19 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     }
   }
 
+  const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-bold text-slate-800">ثبت فیش فروش</h2>
           <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
+          {/* مشخصات مشتری */}
           <input
-            placeholder="نام مشتری"
+            placeholder="نام و نام خانوادگی"
             value={studentName}
             onChange={(e) => setStudentName(e.target.value)}
             className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
@@ -345,66 +363,124 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           />
           <input
             type="tel"
-            placeholder="موبایل (مثلاً ۰۹۱۲۳۴۵۶۷۸۹)"
+            placeholder="شماره تلفن (مثلاً ۰۹۱۲۳۴۵۶۷۸۹)"
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
             className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
             dir="ltr"
             required
           />
-          {/* کشوی محصول */}
-          <select
-            value={product}
-            onChange={(e) => { setProduct(e.target.value); setMonths(""); }}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-            required
-          >
-            <option value="" disabled>انتخاب محصول…</option>
-            {(meta?.products ?? []).map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-          {/* کشوی مدت — فقط برای برنامه */}
-          {isProgram && (
-            <select
-              value={months}
-              onChange={(e) => setMonths(Number(e.target.value))}
-              className="w-full rounded-xl border border-indigo-300 bg-indigo-50/40 px-4 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-              required
-            >
-              <option value="" disabled>مدت برنامه…</option>
-              {(meta?.program_months ?? []).map((m) => (
-                <option key={m} value={m}>{faNum(m)} ماه</option>
+          {/* تاریخ فروش (اختیاری — خالی = امروز) */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">تاریخ فروش:</span>
+            <JalaliDatePicker value={saleDate} onChange={setSaleDate} placeholder="امروز" />
+          </div>
+
+          {/* محصولات (چندتایی — هرکدام با مبلغ خودش) */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-700">محصولات خریداری‌شده</span>
+              <button type="button" onClick={addRow}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-emerald-700">
+                <Plus size={14} /> افزودن محصول
+              </button>
+            </div>
+            <div className="space-y-2">
+              {rows.map((r, i) => (
+                <div key={i} className="rounded-lg border border-slate-200 bg-white p-2">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={r.product}
+                      onChange={(e) => setRow(i, { product: e.target.value, months: "" })}
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm outline-none focus:border-emerald-400"
+                      required
+                    >
+                      <option value="" disabled>انتخاب محصول…</option>
+                      {(meta?.products ?? []).map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="مبلغ (تومان)"
+                      value={r.amount}
+                      onChange={(e) => setRow(i, { amount: e.target.value })}
+                      className="w-32 rounded-lg border border-slate-300 px-2 py-2 text-sm outline-none focus:border-emerald-400"
+                      dir="ltr"
+                      min={0}
+                      required
+                    />
+                    {rows.length > 1 && (
+                      <button type="button" onClick={() => removeRow(i)}
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                  {/* مدت — فقط برای «برنامه» */}
+                  {r.product === PROGRAM && (
+                    <select
+                      value={r.months}
+                      onChange={(e) => setRow(i, { months: Number(e.target.value) })}
+                      className="mt-2 w-full rounded-lg border border-indigo-300 bg-indigo-50/40 px-2 py-2 text-sm outline-none focus:border-indigo-400"
+                      required
+                    >
+                      <option value="" disabled>مدت برنامه…</option>
+                      {(meta?.program_months ?? []).map((m) => (
+                        <option key={m} value={m}>{faNum(m)} ماه</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               ))}
-            </select>
-          )}
-          <input
-            type="number"
-            placeholder="مبلغ (تومان)"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-            dir="ltr"
-            min={0}
-            required
-          />
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-          >
-            <option value="">نوع پرداخت…</option>
-            {(meta?.payment_methods ?? []).map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-          <input
-            placeholder="جزئیات واریز (کد رهگیری/کارت) — اختیاری"
-            value={paymentRef}
-            onChange={(e) => setPaymentRef(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-            dir="ltr"
-          />
+            </div>
+            <div className="mt-2 text-left text-xs font-medium text-emerald-700">
+              جمع کل: {amountMillions(total)}
+            </div>
+          </div>
+
+          {/* اسناد واریز */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+            <div className="mb-2 text-sm font-medium text-slate-700">اسناد واریز</div>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500">تاریخ و ساعت واریز:</span>
+                <JalaliDatePicker value={depDate} onChange={setDepDate} placeholder="تاریخ (شمسی)" />
+                <input
+                  type="time"
+                  value={depTime}
+                  onChange={(e) => setDepTime(e.target.value)}
+                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
+                  dir="ltr"
+                />
+              </div>
+              <input
+                placeholder="کارت واریزکننده"
+                value={payerCard}
+                onChange={(e) => setPayerCard(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400"
+                dir="ltr"
+              />
+              <select
+                value={destAccount}
+                onChange={(e) => setDestAccount(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-400"
+              >
+                <option value="">بانک مقصد (حساب ما)…</option>
+                {(meta?.accounts ?? []).map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              <input
+                placeholder="جزئیات واریز (کد رهگیری) — اختیاری"
+                value={paymentRef}
+                onChange={(e) => setPaymentRef(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400"
+                dir="ltr"
+              />
+            </div>
+          </div>
+
           {error && <div className="text-sm text-rose-600">{error}</div>}
           <button
             disabled={loading}

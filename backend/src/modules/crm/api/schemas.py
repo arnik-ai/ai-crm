@@ -126,22 +126,20 @@ PRODUCTS = [
 PAYMENT_METHODS = ["کارت به کارت", "اقساط", "درگاه آنلاین", "نقدی"]
 PROGRAM_PRODUCT = "برنامه"
 
+# حساب‌های مقصدِ مؤسسه (حساب ما) — لیستِ کشویی در فرم فیش.
+# ⚠️ این مقادیر نمونه‌اند؛ با حساب‌های واقعیِ مؤسسه جایگزین شوند.
+DEST_ACCOUNTS = [
+    "بانک ملت — ۶۱۰۴۳۳۷۸xxxxxxxx",
+    "بانک ملی — ۶۰۳۷۹۹۱xxxxxxxxx",
+    "بانک سامان — ۶۲۱۹۸۶۱xxxxxxxx",
+]
 
-class SaleCreate(BaseModel):
-    student_name: str = Field(min_length=2)
-    mobile: str = Field(pattern=r"^\+?\d{10,15}$")
+
+class SaleItemIn(BaseModel):
+    """یک محصولِ خریداری‌شده در فیش — با مبلغِ جداگانه‌ی خودش."""
     product: str
     program_months: int | None = Field(default=None, ge=1, le=12)
     amount: float = Field(ge=0)
-    payment_method: str | None = None
-    payment_ref: str | None = None
-    note: str | None = None
-    student_id: UUID | None = None
-
-    @field_validator("mobile")
-    @classmethod
-    def normalize_mobile(cls, v: str) -> str:
-        return _normalize_mobile(v)
 
     @field_validator("product")
     @classmethod
@@ -154,12 +152,31 @@ class SaleCreate(BaseModel):
     @classmethod
     def check_months(cls, v, info):
         # برای «برنامه» مدت لازم است؛ برای بقیه باید خالی باشد
-        product = info.data.get("product")
-        if product == PROGRAM_PRODUCT and not v:
+        if info.data.get("product") == PROGRAM_PRODUCT and not v:
             raise ValueError("برای برنامه، مدت (ماه) لازم است")
-        if product != PROGRAM_PRODUCT:
+        if info.data.get("product") != PROGRAM_PRODUCT:
             return None
         return v
+
+
+class SaleCreate(BaseModel):
+    student_name: str = Field(min_length=2)
+    mobile: str = Field(pattern=r"^\+?\d{10,15}$")
+    # چندمحصولی: حداقل یک آیتم، هرکدام مبلغِ خودش را دارد
+    items: list[SaleItemIn] = Field(min_length=1)
+    sold_at: datetime | None = None  # تاریخ فروش (اگر خالی، اکنون)
+    # اسناد واریز (به‌جای «نوع پرداخت»)
+    deposited_at: datetime | None = None  # ساعت+تاریخِ واریز
+    payer_card: str | None = None         # کارت واریزکننده
+    dest_account: str | None = None       # بانک مقصد (حساب ما)
+    payment_ref: str | None = None        # جزئیات واریز / کد رهگیری
+    note: str | None = None
+    student_id: UUID | None = None
+
+    @field_validator("mobile")
+    @classmethod
+    def normalize_mobile(cls, v: str) -> str:
+        return _normalize_mobile(v)
 
 
 class SaleOut(BaseModel):
@@ -169,8 +186,11 @@ class SaleOut(BaseModel):
     product: str
     program_months: int | None = None
     amount: float
-    payment: str | None = None
+    items: list[dict] = []
     payment_ref: str | None = None
+    deposited_at: str | None = None
+    payer_card: str | None = None
+    dest_account: str | None = None
     date: str
     renewal_due: str | None = None
 

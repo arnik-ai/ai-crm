@@ -157,7 +157,7 @@ export const demoDailyPerformance = {
 // لیست فروش (فیش‌ها) — محصولات مطابق فهرست کارفرما
 export const demoSales = {
   items: [
-    { id: "s1", student_name: "مریم ابراهیمی", mobile: "+989121110011", date: "2026-06-17T10:00:00Z", product: "برنامه", program_months: 6, amount: 18_500_000, payment: "کارت به کارت", payment_ref: "۶۲۱۹۸۶...۴۵", renewal_due: "2026-12-17T10:00:00Z" },
+    { id: "s1", student_name: "مریم ابراهیمی", mobile: "+989121110011", date: "2026-06-17T10:00:00Z", product: "چند محصول", program_months: 6, amount: 23_000_000, items: [ { product: "برنامه", program_months: 6, amount: 18_500_000 }, { product: "بمب دهم", program_months: null, amount: 4_500_000 } ], deposited_at: "2026-06-17T16:30:00Z", payer_card: "۶۲۱۹...۴۵۸۸", dest_account: "بانک ملت — ۶۱۰۴۳۳۷۸xxxxxxxx", payment_ref: "TRK-99120", renewal_due: "2026-12-17T10:00:00Z" },
     { id: "s2", student_name: "علی محمدی", mobile: "+989122220022", date: "2026-06-15T10:00:00Z", product: "جهش", program_months: null, amount: 9_800_000, payment: "اقساط", payment_ref: null, renewal_due: null },
     { id: "s3", student_name: "زهرا کریمی", mobile: "+989123330033", date: "2026-06-14T10:00:00Z", product: "بمب دوازدهم", program_months: null, amount: 4_500_000, payment: "کارت به کارت", payment_ref: "۶۰۳۷۹۹...۱۲", renewal_due: null },
     { id: "s4", student_name: "رضا حسینی", mobile: "+989124440044", date: "2026-06-12T10:00:00Z", product: "برنامه", program_months: 3, amount: 6_200_000, payment: "درگاه آنلاین", payment_ref: "TRK-88231", renewal_due: "2026-09-12T10:00:00Z" },
@@ -177,6 +177,11 @@ export const demoSalesMeta = {
     "پامپ", "تک جلسه", "برنامه",
   ],
   payment_methods: ["کارت به کارت", "اقساط", "درگاه آنلاین", "نقدی"],
+  accounts: [
+    "بانک ملت — ۶۱۰۴۳۳۷۸xxxxxxxx",
+    "بانک ملی — ۶۰۳۷۹۹۱xxxxxxxxx",
+    "بانک سامان — ۶۲۱۹۸۶۱xxxxxxxx",
+  ],
   program_months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 };
 

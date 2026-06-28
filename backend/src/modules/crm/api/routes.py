@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.crm.api.schemas import (
+    DEST_ACCOUNTS,
     PAYMENT_METHODS,
     PRODUCTS,
     CourseCreate,
@@ -184,10 +185,11 @@ async def create_followup(
 async def sales_meta(
     user=Depends(require_permission("students:read")),
 ) -> dict:
-    """لیست محصولات، روش‌های پرداخت و گزینه‌های مدت برنامه (برای فرم ثبت فیش)."""
+    """لیست محصولات، حساب‌های مقصد و گزینه‌های مدت برنامه (برای فرم ثبت فیش)."""
     return {
         "products": PRODUCTS,
-        "payment_methods": PAYMENT_METHODS,
+        "payment_methods": PAYMENT_METHODS,  # سازگاری؛ در فرم استفاده نمی‌شود
+        "accounts": DEST_ACCOUNTS,
         "program_months": list(range(1, 13)),
     }
 
@@ -243,10 +245,10 @@ async def export_sales(
         session,
         svc.export_sales_query(),
         headers=["نام مشتری", "موبایل", "تاریخ", "محصول", "مدت (ماه)",
-                 "مبلغ (تومان)", "نوع پرداخت", "جزئیات واریز"],
+                 "مبلغ کل (تومان)", "کارت واریزکننده", "بانک مقصد", "جزئیات واریز"],
         row_mapper=lambda r: [r.student_name, r.mobile, r.sold_at, r.product,
                               r.program_months, float(r.amount) if r.amount is not None else 0,
-                              r.payment_method, r.payment_ref],
+                              r.payer_card, r.dest_account, r.payment_ref],
         filename="لیست-فروش",
     )
 
