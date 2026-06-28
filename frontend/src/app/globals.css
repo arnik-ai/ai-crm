@@ -16,6 +16,21 @@ body {
   font-family: Vazirmatn, system-ui, sans-serif;
 }
 
+/* متنِ ورودی‌ها همیشه مشکی/تیره باشد — وگرنه چون رنگِ بدنه روشن است،
+   متنِ تایپ‌شده روی فیلدِ سفید دیده نمی‌شود (مشکلِ «نوشته دیده نمی‌شود»). */
+input,
+select,
+textarea {
+  color: #1e293b; /* slate-800 */
+}
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8; /* slate-400 — راهنما کم‌رنگ ولی خوانا */
+}
+option {
+  color: #1e293b;
+}
+
 /* اسکرول‌بار ظریف */
 ::-webkit-scrollbar {
   width: 8px;

@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { isDemoMode } from "@/lib/auth";
 import { Sidebar } from "@/components/Sidebar";
@@ -12,16 +12,22 @@ import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum } from "@/lib/utils";
-import { Search, Users, GraduationCap, Phone, MessageSquare, X, Loader2, Send } from "lucide-react";
+import { Search, Users, GraduationCap, Phone, MessageSquare, X, Loader2, Send, Pencil } from "lucide-react";
 
 const DEMO = isDemoMode();
+
+// گزینه‌های ثابت (هم‌خوان با enumهای بک‌اند) برای فرم ویرایش/تکمیل
+const FIELDS = ["تجربی", "ریاضی", "انسانی", "سایر"];
+const GRADES = ["دهم", "یازدهم", "دوازدهم", "فارغ‌التحصیل", "سایر"];
+const SOURCES = ["سایت", "اینستاگرام", "تلگرام", "روبیکا", "بله", "پیامک", "سایر"];
 
 type Student = {
   id: string;
   full_name: string | null;
   mobile: string;
   status: string;
-  course?: string;
+  course?: string;        // دمو
+  field?: string | null;  // بک‌اند (رشته) — برای نمایش از course ?? field استفاده می‌شود
   grade?: string;
   goal?: string;
   gpa?: number | null;
@@ -150,10 +156,12 @@ export default function StudentsPage() {
   const [field, setField] = useState("همه");
   // دانشجویی که مودال ارسال پیام برایش باز است
   const [msgStudent, setMsgStudent] = useState<Student | null>(null);
+  // دانشجویی که مودال ویرایش/تکمیل برایش باز است
+  const [editStudent, setEditStudent] = useState<Student | null>(null);
 
   const items: Student[] = useMemo(() => {
     let list: Student[] = data?.items ?? [];
-    if (field !== "همه") list = list.filter((s) => s.course === field);
+    if (field !== "همه") list = list.filter((s) => (s.course ?? s.field) === field);
     if (q.trim()) {
       const k = q.trim();
       list = list.filter(
@@ -261,7 +269,7 @@ export default function StudentsPage() {
                     </div>
                   </td>
                   <td className="p-3.5 text-slate-600">{s.city ?? "—"}</td>
-                  <td className="p-3.5"><FieldBadge field={s.course} /></td>
+                  <td className="p-3.5"><FieldBadge field={s.course ?? s.field ?? undefined} /></td>
                   <td className="p-3.5 text-slate-600">{s.grade ?? "—"}</td>
                   <td className="p-3.5 text-slate-500">{s.goal ?? "—"}</td>
                   <td className="p-3.5 text-center text-slate-600">
@@ -289,6 +297,13 @@ export default function StudentsPage() {
                       >
                         <MessageSquare size={16} />
                       </button>
+                      <button
+                        onClick={() => setEditStudent(s)}
+                        title="ویرایش / تکمیل اطلاعات"
+                        className="inline-flex items-center justify-center rounded-lg bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
+                      >
+                        <Pencil size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -308,7 +323,102 @@ export default function StudentsPage() {
         {msgStudent && (
           <MessageModal student={msgStudent} onClose={() => setMsgStudent(null)} />
         )}
+        {editStudent && (
+          <EditStudentModal student={editStudent} onClose={() => setEditStudent(null)} />
+        )}
       </main>
+    </div>
+  );
+}
+
+/* ---------- مودال ویرایش/تکمیل اطلاعات دانشجو ---------- */
+function EditStudentModal({ student, onClose }: { student: Student; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [fullName, setFullName] = useState(student.full_name ?? "");
+  const [city, setCity] = useState(student.city ?? "");
+  const [fld, setFld] = useState(student.field ?? student.course ?? "");
+  const [grade, setGrade] = useState(student.grade ?? "");
+  const [goal, setGoal] = useState(student.goal ?? "");
+  const [gpa, setGpa] = useState(student.gpa != null ? String(student.gpa) : "");
+  const [source, setSource] = useState(student.lead_source ?? "");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg("");
+    setLoading(true);
+    try {
+      if (DEMO) {
+        setMsg("در حالت نمایشی ذخیره نمی‌شود.");
+        setLoading(false);
+        return;
+      }
+      await api.patch(`/students/${student.id}`, {
+        full_name: fullName || null,
+        city: city || null,
+        field: fld || null,
+        grade: grade || null,
+        goal: goal || null,
+        gpa: gpa ? Number(gpa) : null,
+        lead_source: source || null,
+      });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["students-incomplete"] });
+      onClose();
+    } catch {
+      setMsg("ذخیره ناموفق بود.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <Pencil size={18} className="text-blue-600" /> ویرایش / تکمیل اطلاعات
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <p className="mb-4 text-sm text-slate-500" dir="ltr">{student.mobile}</p>
+        <form onSubmit={submit} className="space-y-3">
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="نام و نام خانوادگی"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <select value={fld} onChange={(e) => setFld(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">رشته…</option>
+              {FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            <select value={grade} onChange={(e) => setGrade(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">پایه…</option>
+              {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="هدف (مثلاً پزشکی دانشگاه تهران)"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <input value={gpa} onChange={(e) => setGpa(e.target.value)} type="number" placeholder="معدل" min={0} max={20} step="0.01"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" dir="ltr" />
+            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="شهر"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          </div>
+          <select value={source} onChange={(e) => setSource(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+            <option value="">منبع تماس…</option>
+            {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
+            <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">انصراف</button>
+            <button disabled={loading} className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60">
+              {loading && <Loader2 size={15} className="animate-spin" />} ذخیره
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -83,6 +83,9 @@ export default function TasksPage() {
         {/* یادآور تماس بعدیِ تعیین‌نشده (با هر بار تازه‌سازی دوباره ظاهر می‌شود) */}
         <NextCallNag key={nagAt} items={nag?.items ?? []} />
 
+        {/* آلارم اطلاعات ناقص — یادآوری برای تکمیل */}
+        <IncompleteNag />
+
         {/* باکس شماره‌های جدید */}
         <NewNumberBox />
 
@@ -252,6 +255,51 @@ function RenewalReminders({ items }: { items: RenewalItem[] }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- آلارم اطلاعات ناقص (یادآوریِ تکمیل) ---------- */
+type IncompleteItem = { id: string; full_name: string | null; mobile: string | null; missing: string[] };
+
+function IncompleteNag() {
+  const { data } = useQuery<{ items: IncompleteItem[]; count: number }>({
+    queryKey: ["students-incomplete"],
+    queryFn: async () => (await api.get("/students/incomplete")).data,
+  });
+  const items = data?.items ?? [];
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm">
+      <div className="mb-2 flex items-center gap-2">
+        <AlertTriangle size={18} className="text-rose-500" />
+        <h2 className="font-bold text-rose-700">اطلاعات ناقص — تکمیلش کن</h2>
+        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
+          {faNum(items.length)}
+        </span>
+        <Link
+          href="/students"
+          className="mr-auto rounded-lg bg-rose-500 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-rose-600"
+        >
+          رفتن به تکمیل
+        </Link>
+      </div>
+      <div className="space-y-1.5">
+        {items.slice(0, 8).map((s) => (
+          <div key={s.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/70 p-2 text-sm">
+            <span className="font-medium text-slate-700">{s.full_name || s.mobile || "ناشناس"}</span>
+            <span className="text-xs text-slate-400">کم دارد:</span>
+            <span className="flex flex-wrap gap-1">
+              {s.missing.map((m, i) => (
+                <span key={i} className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] text-rose-700">{m}</span>
+              ))}
+            </span>
+          </div>
+        ))}
+        {items.length > 8 && (
+          <p className="text-xs text-rose-600">و {faNum(items.length - 8)} مورد دیگر…</p>
+        )}
       </div>
     </div>
   );
