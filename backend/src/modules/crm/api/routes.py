@@ -222,6 +222,16 @@ async def sales_timeline(
     return await SalesService(session).purchase_timeline()
 
 
+@router.get("/sales/repeat-customers")
+async def sales_repeat_customers(
+    min_purchases: int = Query(2, ge=2, le=20),
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """گزارش مشتریانِ چندبارخرید: تعداد خرید، تاریخ‌ها و فاصله‌ی روز بین خریدها."""
+    return await SalesService(session).repeat_customers(min_purchases=min_purchases)
+
+
 @router.get("/sales/export")
 async def export_sales(
     session: AsyncSession = Depends(get_session),

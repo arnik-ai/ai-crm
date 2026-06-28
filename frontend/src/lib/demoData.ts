@@ -313,6 +313,29 @@ export const demoTimeline = {
   ],
 };
 
+// مشتریان چندبارخرید — تعداد خرید، تاریخ‌ها و فاصله‌ی روز بین خریدها
+export const demoRepeatCustomers = {
+  items: [
+    {
+      mobile: "+989121110011", student_name: "مریم ابراهیمی", count: 3,
+      total_amount: 7400000,
+      purchases: [
+        { product: "بمب یازدهم", amount: 1800000, sold_at: "2025-09-20T10:00:00Z", days_since_prev: null },
+        { product: "برنامه", amount: 3600000, sold_at: "2026-01-15T10:00:00Z", days_since_prev: 117 },
+        { product: "جهش", amount: 2000000, sold_at: "2026-06-17T10:00:00Z", days_since_prev: 153 },
+      ],
+    },
+    {
+      mobile: "+989124440044", student_name: "رضا حسینی", count: 2,
+      total_amount: 5200000,
+      purchases: [
+        { product: "برنامه", amount: 3600000, sold_at: "2026-03-02T10:00:00Z", days_since_prev: null },
+        { product: "روش مطالعه", amount: 1600000, sold_at: "2026-06-12T10:00:00Z", days_since_prev: 102 },
+      ],
+    },
+  ],
+};
+
 // تماس‌های اقدام‌شده بدون تعیین تماس بعدی (برای یادآور دوره‌ای)
 export const demoMissingNextCall = {
   items: [
@@ -342,5 +365,6 @@ export const demoByPath: Record<string, unknown> = {
   "/students/incomplete": demoIncomplete,
   "/dashboard/hourly": demoHourly,
   "/sales/timeline": demoTimeline,
+  "/sales/repeat-customers": demoRepeatCustomers,
   "/dashboard/missing-next-call": demoMissingNextCall,
 };

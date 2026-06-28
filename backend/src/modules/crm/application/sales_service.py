@@ -166,6 +166,53 @@ class SalesService:
             })
         return {"items": items}
 
+    async def repeat_customers(self, min_purchases: int = 2, limit: int = 200) -> dict:
+        """گزارش مشتریانِ چندبارخرید: هر مشتری چند فروش داشته، در چه تاریخ‌هایی
+        و با چه فاصله‌ی روزی بین خریدها.
+
+        گروه‌بندی بر اساس موبایلِ فیش (مستقل از این‌که سرنخ ساخته شده یا نه).
+        فقط مشتریانی که حداقل `min_purchases` خرید دارند برگردانده می‌شوند.
+        """
+        # شمارش فروش به ازای هر موبایل؛ فقط آن‌هایی که ≥ min_purchases هستند.
+        grouped = (
+            select(Sale.mobile, func.count(Sale.id).label("cnt"))
+            .where(Sale.mobile.is_not(None))
+            .group_by(Sale.mobile)
+            .having(func.count(Sale.id) >= min_purchases)
+            .order_by(func.count(Sale.id).desc())
+            .limit(limit)
+        )
+        mobiles = (await self._s.execute(grouped)).all()
+
+        items = []
+        for mobile, cnt in mobiles:
+            sales = (await self._s.execute(
+                select(Sale.student_name, Sale.product, Sale.amount, Sale.sold_at)
+                .where(Sale.mobile == mobile)
+                .order_by(Sale.sold_at.asc())
+            )).all()
+            purchases = []
+            prev_date = None
+            for s in sales:
+                gap = (s.sold_at - prev_date).days if prev_date and s.sold_at else None
+                purchases.append({
+                    "product": s.product,
+                    "amount": float(s.amount) if s.amount is not None else 0.0,
+                    "sold_at": s.sold_at.isoformat() if s.sold_at else None,
+                    "days_since_prev": gap,
+                })
+                prev_date = s.sold_at
+            name = next((s.student_name for s in sales if s.student_name), None)
+            total = sum(p["amount"] for p in purchases)
+            items.append({
+                "mobile": mobile,
+                "student_name": name,
+                "count": int(cnt),
+                "total_amount": total,
+                "purchases": purchases,
+            })
+        return {"items": items, "count": len(items)}
+
     @staticmethod
     def _to_dict(s: Sale) -> dict:
         return {

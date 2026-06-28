@@ -45,6 +45,13 @@ type TimelineItem = {
   calls_to_purchase: number; days_to_purchase: number | null;
   days_from_first_call: number | null;
 };
+type RepeatPurchase = {
+  product: string; amount: number; sold_at: string | null; days_since_prev: number | null;
+};
+type RepeatCustomer = {
+  mobile: string; student_name: string | null; count: number;
+  total_amount: number; purchases: RepeatPurchase[];
+};
 type HourlyStats = {
   hours: number[];
   answered: number[];
@@ -195,9 +202,15 @@ export default function ReportsPage() {
     queryFn: async () => (await api.get("/sales/timeline")).data,
     enabled,
   });
+  const { data: repeat } = useQuery<{ items: RepeatCustomer[] }>({
+    queryKey: ["sales-repeat"],
+    queryFn: async () => (await api.get("/sales/repeat-customers")).data,
+    enabled,
+  });
   const commItems = comms?.items ?? [];
   const incompleteItems = incomplete?.items ?? [];
   const timelineItems = timeline?.items ?? [];
+  const repeatItems = repeat?.items ?? [];
 
   // آمار ساعتی (کلی یا تفکیک نیرو)
   const [hourAgent, setHourAgent] = useState("");
@@ -772,6 +785,79 @@ export default function ReportsPage() {
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
               <Clock size={36} className="opacity-40" />
               <p className="text-sm">هنوز خریدی برای نمایش تایم‌لاین ثبت نشده است.</p>
+            </div>
+          )}
+        </div>
+
+        {/* مشتریان چندبارخرید — تعداد خرید، تاریخ‌ها و فاصله‌ی روز بین خریدها */}
+        <div className="mt-6 rounded-2xl border border-amber-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-4">
+            <div className="flex items-center gap-2">
+              <Clock className="text-amber-500" size={20} />
+              <span className="font-bold text-slate-800">مشتریان چندبارخرید</span>
+              <span className="hidden text-xs text-slate-400 sm:inline">(هر مشتری چند بار خرید کرده، در چه تاریخ‌هایی و با چه فاصله‌ای)</span>
+            </div>
+            <ExportButton
+              rows={repeatItems.flatMap((c) =>
+                c.purchases.map((p, idx) => ({
+                  student_name: c.student_name ?? "—",
+                  mobile: c.mobile,
+                  count: c.count,
+                  nth: idx + 1,
+                  product: p.product,
+                  amount: p.amount,
+                  sold_fa: faDateTime(p.sold_at ?? undefined),
+                  gap: p.days_since_prev ?? "",
+                }))
+              )}
+              columns={[
+                { key: "student_name", label: "نام" },
+                { key: "mobile", label: "موبایل" },
+                { key: "count", label: "تعداد کل خرید" },
+                { key: "nth", label: "خرید شماره" },
+                { key: "product", label: "محصول" },
+                { key: "amount", label: "مبلغ (تومان)" },
+                { key: "sold_fa", label: "تاریخ خرید" },
+                { key: "gap", label: "فاصله از خرید قبلی (روز)" },
+              ]}
+              filename="مشتریان-چندبارخرید"
+            />
+          </div>
+          <div className="divide-y divide-slate-100">
+            {repeatItems.map((c) => (
+              <div key={c.mobile} className="p-4">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="font-bold text-slate-800">{c.student_name ?? "—"}</span>
+                  <span className="text-xs text-slate-400" dir="ltr">{c.mobile}</span>
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-600">
+                    {faNum(c.count)} خرید
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-600">
+                    جمع: {faNum(Math.round(c.total_amount).toLocaleString("en-US"))} تومان
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {c.purchases.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      {i > 0 && (
+                        <span className="text-xs text-slate-400">
+                          ← {p.days_since_prev != null ? `${faNum(p.days_since_prev)} روز بعد` : "—"} ←
+                        </span>
+                      )}
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
+                        <div className="font-medium text-slate-700">{p.product}</div>
+                        <div className="text-slate-400">{faDateTime(p.sold_at ?? undefined)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          {repeatItems.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-400">
+              <Clock size={36} className="opacity-40" />
+              <p className="text-sm">هنوز مشتریِ چندبارخریدی ثبت نشده است.</p>
             </div>
           )}
         </div>

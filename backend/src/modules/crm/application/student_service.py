@@ -20,6 +20,7 @@ from src.modules.crm.infrastructure.models import (
     SalesStage,
     Student,
 )
+from src.modules.telephony.infrastructure.models import Call
 from src.shared.errors.exceptions import ConflictError, NotFoundError
 from src.shared.security.audit import record_audit
 
@@ -29,7 +30,15 @@ class StudentService:
         self._s = session
 
     async def list(self, page, size, stage, agent, status, q) -> Paginated:
-        stmt = select(Student).where(Student.deleted_at.is_(None))
+        # تعداد تماس هر دانشجو (با شماره‌ی موبایلش) تا کنار نام دیده شود.
+        call_count = (
+            select(func.count(Call.id))
+            .where(Call.student_id == Student.id)
+            .correlate(Student).scalar_subquery()
+        )
+        stmt = select(Student, call_count.label("call_count")).where(
+            Student.deleted_at.is_(None)
+        )
         if stage:
             stmt = stmt.where(Student.sales_stage_id == stage)
         if agent:
@@ -45,11 +54,13 @@ class StudentService:
         )
         rows = (
             await self._s.execute(stmt.offset((page - 1) * size).limit(size))
-        ).scalars().all()
-        return Paginated(
-            items=[StudentOut.model_validate(r) for r in rows],
-            total=total or 0, page=page, size=size,
-        )
+        ).all()
+        items = []
+        for student, cc in rows:
+            data = StudentOut.model_validate(student).model_dump()
+            data["call_count"] = int(cc or 0)
+            items.append(data)
+        return Paginated(items=items, total=total or 0, page=page, size=size)
 
     async def create(self, body: StudentCreate, actor_id: str) -> StudentOut:
         existing = await self._s.scalar(
@@ -61,6 +72,8 @@ class StudentService:
                                 code="STUDENT_DUPLICATE")
         student = Student(
             full_name=body.full_name, mobile=body.mobile,
+            city=body.city, field=body.field, grade=body.grade,
+            goal=body.goal, gpa=body.gpa,
             course_interest_id=body.course_interest_id,
             lead_source=body.lead_source, assigned_agent_id=body.assigned_agent_id,
         )
