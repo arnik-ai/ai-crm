@@ -346,6 +346,23 @@ export const demoRepeatCustomers = {
   ],
 };
 
+// اقساطِ برنامه (نمونه مطابق شیتِ کارفرما — مبلغ‌ها تومانِ کامل، نمایش هزار تومان)
+export const demoInstallments = {
+  items: [
+    { id: "i1", student_name: "دینا فتاحی", mobile: "+989121110001", advisor: "عباسی",
+      amount: 15_000_000, count: 10, installment_amount: 1_500_000, start_month: "فروردین", paid: [1, 2, 3, 4, 5] },
+    { id: "i2", student_name: "اسما علی‌محمدی", mobile: "+989121110002", advisor: "زند",
+      amount: 9_400_000, count: 10, installment_amount: 940_000, start_month: "خرداد", paid: [1, 2, 3] },
+    { id: "i3", student_name: "سمیه رحمانی", mobile: "+989121110003", advisor: "زند",
+      amount: 18_500_000, count: 10, installment_amount: 1_850_000, start_month: "مرداد", paid: [1, 2] },
+    { id: "i4", student_name: "امیر محمد ایواز", mobile: "+989121110004", advisor: "فغانی",
+      amount: 7_500_000, count: 3, installment_amount: 2_500_000, start_month: "تیر", paid: [1] },
+  ],
+};
+export const demoInstallmentsMeta = {
+  months: ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"],
+};
+
 // تماس‌های اقدام‌شده بدون تعیین تماس بعدی (برای یادآور دوره‌ای)
 export const demoMissingNextCall = {
   items: [
@@ -376,5 +393,7 @@ export const demoByPath: Record<string, unknown> = {
   "/dashboard/hourly": demoHourly,
   "/sales/timeline": demoTimeline,
   "/sales/repeat-customers": demoRepeatCustomers,
+  "/installments": demoInstallments,
+  "/installments/meta": demoInstallmentsMeta,
   "/dashboard/missing-next-call": demoMissingNextCall,
 };

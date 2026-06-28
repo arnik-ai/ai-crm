@@ -8,6 +8,7 @@ import { Pagination } from "@/components/Pagination";
 import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import { JalaliDatePicker } from "@/components/JalaliDatePicker";
+import { InstallmentsTab } from "@/components/InstallmentsTab";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDigits } from "@/lib/utils";
@@ -103,6 +104,7 @@ export default function SalesPage() {
 
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [tab, setTab] = useState<"sales" | "installments">("sales");
 
   const items: Sale[] = useMemo(() => {
     let list: Sale[] = data?.items ?? [];
@@ -140,18 +142,45 @@ export default function SalesPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setShowAdd(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"
-            >
-              <Plus size={16} /> ثبت فیش
-            </button>
-            <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="لیست-فروش" />
-            <ExportAllButton endpoint="/sales/export" filename="همه-فروش" />
+            {tab === "sales" && (
+              <>
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"
+                >
+                  <Plus size={16} /> ثبت فیش
+                </button>
+                <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="لیست-فروش" />
+                <ExportAllButton endpoint="/sales/export" filename="همه-فروش" />
+              </>
+            )}
             <BackButton dark />
           </div>
         </div>
 
+        {/* تب‌ها: فیش‌های فروش | اقساط برنامه‌ها */}
+        <div className="mb-4 flex gap-2">
+          {([
+            { k: "sales", label: "فیش‌های فروش" },
+            { k: "installments", label: "اقساط برنامه‌ها" },
+          ] as const).map((t) => (
+            <button
+              key={t.k}
+              onClick={() => setTab(t.k)}
+              className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
+                tab === t.k
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "bg-white/10 text-slate-200 hover:bg-white/20"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "installments" && <InstallmentsTab />}
+
+        {tab === "sales" && (<>
         {/* کارت‌های خلاصه — جمعِ هر دسته جدا (بدون مجموع کل) */}
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
@@ -263,6 +292,7 @@ export default function SalesPage() {
             onPage={setPage}
           />
         )}
+        </>)}
       </main>
 
       {showAdd && (

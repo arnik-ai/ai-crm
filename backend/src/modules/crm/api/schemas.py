@@ -195,6 +195,29 @@ class SaleOut(BaseModel):
     renewal_due: str | None = None
 
 
+# ---------- اقساطِ برنامه ----------
+JALALI_MONTHS = [
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+]
+
+
+class InstallmentCreate(BaseModel):
+    student_name: str = Field(min_length=2)
+    mobile: str | None = None
+    advisor: str | None = None           # مشاور
+    amount: float = Field(ge=0)          # مبلغ کل (تومان)
+    count: int = Field(ge=1, le=24)     # تعداد اقساط
+    installment_amount: float = Field(ge=0)  # قسط (تومان)
+    start_month: str | None = None       # ماهِ شروع (شمسی)
+    note: str | None = None
+
+    @field_validator("mobile")
+    @classmethod
+    def normalize_mobile(cls, v):
+        return _normalize_mobile(v) if v else v
+
+
 # ---------- پیام‌رسانی (پیامک/واتساپ/تلگرام) ----------
 MessageChannel = Literal["sms", "whatsapp", "telegram"]
 

@@ -7,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.crm.api.schemas import (
     DEST_ACCOUNTS,
+    JALALI_MONTHS,
     PAYMENT_METHODS,
     PRODUCTS,
     CourseCreate,
     CourseUpdate,
     FollowupCreate,
+    InstallmentCreate,
     MessageCreate,
     NoteCreate,
     Paginated,
@@ -25,6 +27,7 @@ from src.modules.crm.api.schemas import (
     TagCreate,
 )
 from src.modules.crm.application.catalog_service import CatalogService
+from src.modules.crm.application.installment_service import InstallmentService
 from src.modules.crm.application.messaging_service import MessagingService
 from src.modules.crm.application.sales_service import SalesService
 from src.modules.crm.application.student_service import StudentService
@@ -251,6 +254,52 @@ async def export_sales(
                               r.payer_card, r.dest_account, r.payment_ref],
         filename="لیست-فروش",
     )
+
+
+# ---------- Installments (اقساطِ برنامه — افزودنِ دستی مثل شیت اکسل) ----------
+@router.get("/installments/meta")
+async def installments_meta(
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """ماه‌های شمسی برای dropdownِ «ماه شروع»."""
+    return {"months": JALALI_MONTHS}
+
+
+@router.get("/installments")
+async def list_installments(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    return await InstallmentService(session).list()
+
+
+@router.post("/installments", status_code=201)
+async def create_installment(
+    body: InstallmentCreate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    return await InstallmentService(session).create(body)
+
+
+@router.post("/installments/{plan_id}/toggle/{n}")
+async def toggle_installment(
+    plan_id: UUID,
+    n: int,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    """تیک/برداشتِ قسطِ شماره‌ی n (با کلیک روی خانه‌ی ماه)."""
+    return await InstallmentService(session).toggle(plan_id, n)
+
+
+@router.delete("/installments/{plan_id}", status_code=200)
+async def delete_installment(
+    plan_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    return await InstallmentService(session).delete(plan_id)
 
 
 # ---------- Messages (پیامک/واتساپ/تلگرام + گزارش ارتباطات) ----------

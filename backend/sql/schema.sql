@@ -179,6 +179,24 @@ CREATE TABLE sale_items (
 CREATE INDEX ix_sale_items_sale    ON sale_items(sale_id);
 CREATE INDEX ix_sale_items_product ON sale_items(product);
 
+-- پلنِ اقساطِ برنامه (افزودنِ دستی مثل شیت اکسل)
+CREATE TABLE installment_plans (
+    id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id          uuid,
+    student_name       text,
+    mobile             text,
+    advisor            text,
+    amount             numeric(14,0) NOT NULL DEFAULT 0,
+    count              int NOT NULL DEFAULT 1,
+    installment_amount numeric(14,0) NOT NULL DEFAULT 0,
+    start_month        text,
+    paid               jsonb,
+    note               text,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+    updated_at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_installments_mobile ON installment_plans(mobile);
+
 CREATE TABLE messages (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id uuid REFERENCES students(id) ON DELETE SET NULL,

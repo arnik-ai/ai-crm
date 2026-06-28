@@ -152,6 +152,26 @@ class SaleItem(Base):
     amount: Mapped[float] = mapped_column(Numeric(14, 0), default=0)
 
 
+class InstallmentPlan(Base):
+    """پلنِ اقساطِ برنامه — مثل شیتِ اکسلِ کارفرما (افزودنِ دستی).
+
+    هر ردیف: دانش‌آموز، مشاور، مبلغِ کل، تعداد اقساط، مبلغِ هر قسط، ماهِ شروع.
+    وضعیتِ پرداختِ هر قسط در `paid` (آرایه‌ی شماره‌اقساطِ پرداخت‌شده) نگه داشته
+    می‌شود — با کلیک روی خانه‌ی هر ماه تیک/برداشته می‌شود.
+    """
+    __tablename__ = "installment_plans"
+    tenant_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    student_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    mobile: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    advisor: Mapped[str | None] = mapped_column(String(100), nullable=True)  # مشاور
+    amount: Mapped[float] = mapped_column(Numeric(14, 0), default=0)          # مبلغ کل (تومان)
+    count: Mapped[int] = mapped_column(Integer, default=1)                    # تعداد اقساط
+    installment_amount: Mapped[float] = mapped_column(Numeric(14, 0), default=0)  # قسط (تومان)
+    start_month: Mapped[str | None] = mapped_column(String(20), nullable=True)    # ماهِ شروع (شمسی)
+    paid: Mapped[list | None] = mapped_column(JSONB, nullable=True)           # شماره‌اقساطِ پرداخت‌شده
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class Message(Base):
     """لاگ پیام‌های ارسالی به مخاطب — پیامک سامانه‌ای / واتساپ / تلگرام.
 
