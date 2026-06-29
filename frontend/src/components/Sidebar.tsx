@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, UserCog, ClipboardList, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, UserCog, ClipboardList, ShieldCheck, Menu, X } from "lucide-react";
 import { getSession, isManager, isAuthenticated } from "@/lib/auth";
 
 // managerOnly: فقط مدیر فروش/ادمین می‌بیند (پنل مدیر فروش).
@@ -16,6 +16,7 @@ const items = [
   { href: "/reports", label: "گزارش‌ها (پنل مدیر)", icon: BarChart3, managerOnly: true },
   { href: "/users", label: "مدیریت کاربران", icon: UserCog, managerOnly: true },
   { href: "/assistant", label: "دستیار هوشمند", icon: Bot, managerOnly: false },
+  { href: "/guide", label: "راهنمای دسترسی‌ها", icon: ShieldCheck, managerOnly: false },
 ];
 
 // آیتم‌های پرکاربردِ نوارِ پایینِ موبایل (دسترسی یک‌لمسی برای همه‌ی نقش‌ها)
