@@ -206,6 +206,16 @@ docs/     → ۱۲ سند معماری فارسی
     - `d16b29f` #۳ سیستم Toast (`components/Toast.tsx` + ToastProvider) وصل به اقدام‌های اصلی.
     - ⏳ مانده از اولویت‌بالا: #۲ جدول‌ها→کارت روی موبایل، #۶ جستجوی سراسری.
 
+32. **VoIP/AI فاز A — پرکردنِ خودکارِ CRM از مکالمه (commit `44f82b7`)** —
+    حلقه‌ی «صوت→متن→استخراج→پروفایل». زیرساختِ telephony(Workano)+ai_analysis(Whisper/GPT)
+    از قبل بود؛ این فاز حلقه‌ی نهایی را اضافه کرد:
+    - `ExtractedInfo` + رشته/پایه/شهر (Literalِ مجاز؛ موبایل نه).
+    - پرامپتِ استخراجِ قوی + ضدِ prompt-injection.
+    - `AnalysisRepository.autofill_student_from_extraction` — 🛡️ فقط فیلدهای خالی، بدون
+      حذف، whitelist، گیتِ اطمینان ≥۰٫۶، رشته/پایه فقط از فهرست مجاز، موبایل هرگز از AI، +Activity.
+    - ⏳ **فاز B (مانده):** اتصالِ واقعیِ ورکانو — نیازمندِ مستندِ webhook/API ورکانو + کلید/secret
+      + استقرارِ بک‌اند (DB/Redis/S3). `WorkanoProvider` فعلاً اسکلت است و باید با فرمتِ واقعی هماهنگ شود.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
