@@ -67,6 +67,21 @@ const ROLE_FA: Record<string, string> = {
   viewer: "بیننده",
 };
 
+// ماتریسِ دسترسیِ صفحه‌ها به نقش‌ها (هم‌خوان با مجوزهای seed.py)
+// ترتیب ستون‌ها: admin, sales_manager, sales_agent, viewer
+const ACCESS_COLS = ["admin", "sales_manager", "sales_agent", "viewer"] as const;
+const ACCESS_ROWS: { page: string; access: boolean[]; note?: string }[] = [
+  { page: "کارهای روز", access: [true, true, true, true] },
+  { page: "دانشجویان / سرنخ‌ها", access: [true, true, true, true], note: "کارشناس فقط مالِ خودش" },
+  { page: "تماس‌ها", access: [true, true, true, true], note: "بیننده فقط مشاهده" },
+  { page: "لیست فروش و اقساط", access: [true, true, true, false] },
+  { page: "پیگیری‌ها", access: [true, true, true, false] },
+  { page: "دستیار هوشمند", access: [true, true, true, false] },
+  { page: "داشبورد", access: [true, true, false, true], note: "بیننده فقط مشاهده" },
+  { page: "گزارش‌های مدیریتی", access: [true, true, false, false] },
+  { page: "مدیریت کاربران", access: [true, true, false, false] },
+];
+
 export default function GuidePage() {
   const [roles, setRoles] = useState<string[]>([]);
   const [name, setName] = useState("");
@@ -154,6 +169,46 @@ export default function GuidePage() {
             );
           })}
         </div>
+
+        {/* جدولِ دسترسیِ صفحه‌ها به نقش‌ها */}
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="border-b border-slate-100 p-4">
+            <span className="font-bold text-slate-800">کدام صفحه برای کدام نقش؟</span>
+          </div>
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="p-3 text-right font-medium">صفحه</th>
+                {ACCESS_COLS.map((c) => (
+                  <th key={c} className={`p-3 text-center font-medium ${c === myRole ? "text-violet-700" : ""}`}>
+                    {ROLE_FA[c]}
+                    {c === myRole && <span className="block text-[10px]">(شما)</span>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ACCESS_ROWS.map((row, i) => (
+                <tr key={row.page} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                  <td className="p-3 text-slate-700">
+                    {row.page}
+                    {row.note && <span className="mr-1 text-[11px] text-slate-400"> · {row.note}</span>}
+                  </td>
+                  {row.access.map((ok, k) => (
+                    <td key={k} className={`p-3 text-center ${ACCESS_COLS[k] === myRole ? "bg-violet-50/50" : ""}`}>
+                      {ok ? <Check size={16} className="mx-auto text-emerald-500" />
+                          : <XIcon size={16} className="mx-auto text-rose-300" />}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-4 text-center text-xs text-slate-400">
+          تصمیمِ نهاییِ دسترسی همیشه در سرور گرفته می‌شود؛ این صفحه فقط راهنماست.
+        </p>
       </main>
     </div>
   );
