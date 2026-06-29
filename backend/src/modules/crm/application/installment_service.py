@@ -34,11 +34,16 @@ class InstallmentService:
         await self._s.commit()
         return self._to_dict(plan)
 
-    async def list(self) -> dict:
+    async def list(self, page: int = 1, size: int = 50) -> dict:
+        base = select(InstallmentPlan).order_by(InstallmentPlan.created_at.desc())
+        total = await self._s.scalar(
+            select(func.count()).select_from(base.subquery())
+        ) or 0
         rows = (await self._s.execute(
-            select(InstallmentPlan).order_by(InstallmentPlan.created_at.desc())
+            base.offset((page - 1) * size).limit(size)
         )).scalars().all()
-        return {"items": [self._to_dict(p) for p in rows]}
+        return {"items": [self._to_dict(p) for p in rows],
+                "total": total, "page": page, "size": size}
 
     async def toggle(self, plan_id: UUID, n: int) -> dict:
         """تیک/برداشتِ قسطِ شماره‌ی n (۱-مبنا)."""

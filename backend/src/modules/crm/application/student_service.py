@@ -1,7 +1,7 @@
 """سرویس دامنه‌ی دانشجو — منطق CRUD، تغییر مرحله، یادداشت و پیگیری."""
 from uuid import UUID
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.crm.api.schemas import (
@@ -278,11 +278,12 @@ class StudentService:
             .order_by(Student.created_at.desc())
         )
 
-    async def list_incomplete(self, limit: int = 1000) -> dict:
-        """گزارش «اطلاعات ناقص»: هر دانشجو چه چیزی کم دارد.
+    async def list_incomplete(self, page: int = 1, size: int = 50) -> dict:
+        """گزارش «اطلاعات ناقص» (صفحه‌بندی‌شده): هر دانشجو چه چیزی کم دارد.
 
         موارد بررسی‌شده: نام، رشته، پایه، هدف، معدل، پیامک سامانه‌ای،
-        پیام واتساپ/تلگرام، و توضیحات (یادداشت).
+        پیام واتساپ/تلگرام، و توضیحات (یادداشت). شرطِ «ناقص‌بودن» در SQL اعمال
+        می‌شود تا شمارش و صفحه‌بندی دقیق باشد.
         """
         has_note = exists().where(Note.student_id == Student.id)
         has_sms = exists().where(Message.student_id == Student.id,
@@ -291,16 +292,32 @@ class StudentService:
                                 Message.channel == "whatsapp")
         has_tg = exists().where(Message.student_id == Student.id,
                                 Message.channel == "telegram")
-        rows = (await self._s.execute(
+        # «ناقص» = حداقل یکی از این‌ها خالی/نبود
+        incomplete_cond = or_(
+            Student.full_name.is_(None), Student.full_name == "",
+            Student.field.is_(None),
+            Student.grade.is_(None),
+            Student.goal.is_(None),
+            Student.gpa.is_(None),
+            ~has_sms,
+            and_(~has_wa, ~has_tg),
+            ~has_note,
+        )
+        base = (
             select(
                 Student.id, Student.full_name, Student.mobile, Student.field,
                 Student.grade, Student.goal, Student.gpa,
                 has_note.label("has_note"), has_sms.label("has_sms"),
                 has_wa.label("has_wa"), has_tg.label("has_tg"),
             )
-            .where(Student.deleted_at.is_(None))
-            .order_by(Student.created_at.desc())
-            .limit(limit)
+            .where(Student.deleted_at.is_(None), incomplete_cond)
+        )
+        total = await self._s.scalar(
+            select(func.count()).select_from(base.subquery())
+        ) or 0
+        rows = (await self._s.execute(
+            base.order_by(Student.created_at.desc())
+            .offset((page - 1) * size).limit(size)
         )).all()
 
         items = []
@@ -329,7 +346,8 @@ class StudentService:
                     "mobile": r.mobile,
                     "missing": missing,
                 })
-        return {"items": items, "count": len(items)}
+        return {"items": items, "total": total, "count": total,
+                "page": page, "size": size}
 
     async def lookup_by_mobile(self, mobile: str) -> dict:
         """جست‌وجوی موبایل: آیا از قبل ثبت شده؟ نام، تاریخ ثبت و خریدهای قبلی.

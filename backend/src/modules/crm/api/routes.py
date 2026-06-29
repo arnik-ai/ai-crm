@@ -83,11 +83,13 @@ async def export_students(
 
 @router.get("/students/incomplete")
 async def list_incomplete_students(
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("students:read")),
 ) -> dict:
     """گزارش دانشجویانی که اطلاعاتشان ناقص است (نام/رشته/پایه/هدف/معدل/پیام/توضیح)."""
-    return await StudentService(session).list_incomplete()
+    return await StudentService(session).list_incomplete(page, size)
 
 
 @router.get("/students/advisors")
@@ -250,21 +252,26 @@ async def create_sale(
 
 @router.get("/sales/timeline")
 async def sales_timeline(
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("students:read")),
 ) -> dict:
     """تایم‌لاینِ ورود→تماس→خرید (تعداد تماس و روز تا خرید)."""
-    return await SalesService(session).purchase_timeline()
+    return await SalesService(session).purchase_timeline(page, size)
 
 
 @router.get("/sales/repeat-customers")
 async def sales_repeat_customers(
     min_purchases: int = Query(2, ge=2, le=20),
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("students:read")),
 ) -> dict:
     """گزارش مشتریانِ چندبارخرید: تعداد خرید، تاریخ‌ها و فاصله‌ی روز بین خریدها."""
-    return await SalesService(session).repeat_customers(min_purchases=min_purchases)
+    return await SalesService(session).repeat_customers(
+        min_purchases=min_purchases, page=page, size=size)
 
 
 @router.get("/sales/export")
@@ -297,10 +304,12 @@ async def installments_meta(
 
 @router.get("/installments")
 async def list_installments(
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("students:read")),
 ) -> dict:
-    return await InstallmentService(session).list()
+    return await InstallmentService(session).list(page, size)
 
 
 @router.post("/installments", status_code=201)

@@ -168,12 +168,15 @@ class SalesService:
             Sale.dest_account, Sale.payment_ref,
         ).order_by(Sale.sold_at.desc())
 
-    async def purchase_timeline(self, limit: int = 100) -> dict:
-        """تایم‌لاینِ ورود→تماس→خرید برای هر فروش.
+    async def purchase_timeline(self, page: int = 1, size: int = 50) -> dict:
+        """تایم‌لاینِ ورود→تماس→خرید برای هر فروش (صفحه‌بندی‌شده).
 
         برای هر فیش: تاریخ ورودِ شماره، اولین تماس، تاریخ خرید، تعداد تماس تا خرید
         و فاصله‌ی روز (از ورود و از اولین تماس تا خرید).
         """
+        total = await self._s.scalar(
+            select(func.count(Sale.id)).where(Sale.student_id.is_not(None))
+        ) or 0
         calls_count = (
             select(func.count(Call.id))
             .where(Call.student_id == Sale.student_id,
@@ -196,7 +199,7 @@ class SalesService:
             .outerjoin(Student, Student.id == Sale.student_id)
             .where(Sale.student_id.is_not(None))
             .order_by(Sale.sold_at.desc())
-            .limit(limit)
+            .offset((page - 1) * size).limit(size)
         )).all()
 
         items = []
@@ -217,25 +220,29 @@ class SalesService:
                 "days_to_purchase": days_total,
                 "days_from_first_call": days_from_first,
             })
-        return {"items": items}
+        return {"items": items, "total": total, "page": page, "size": size}
 
-    async def repeat_customers(self, min_purchases: int = 2, limit: int = 200) -> dict:
-        """گزارش مشتریانِ چندبارخرید: هر مشتری چند فروش داشته، در چه تاریخ‌هایی
-        و با چه فاصله‌ی روزی بین خریدها.
+    async def repeat_customers(self, min_purchases: int = 2,
+                               page: int = 1, size: int = 50) -> dict:
+        """گزارش مشتریانِ چندبارخرید (صفحه‌بندی‌شده): هر مشتری چند فروش داشته، در چه
+        تاریخ‌هایی و با چه فاصله‌ی روزی بین خریدها.
 
-        گروه‌بندی بر اساس موبایلِ فیش (مستقل از این‌که سرنخ ساخته شده یا نه).
-        فقط مشتریانی که حداقل `min_purchases` خرید دارند برگردانده می‌شوند.
+        گروه‌بندی بر اساس موبایلِ فیش. فقط مشتریانی که ≥ min_purchases خرید دارند.
         """
-        # شمارش فروش به ازای هر موبایل؛ فقط آن‌هایی که ≥ min_purchases هستند.
+        # موبایل‌هایی که ≥ min_purchases خرید دارند (پایه‌ی شمارش و صفحه‌بندی)
         grouped = (
             select(Sale.mobile, func.count(Sale.id).label("cnt"))
             .where(Sale.mobile.is_not(None))
             .group_by(Sale.mobile)
             .having(func.count(Sale.id) >= min_purchases)
-            .order_by(func.count(Sale.id).desc())
-            .limit(limit)
         )
-        mobiles = (await self._s.execute(grouped)).all()
+        total = await self._s.scalar(
+            select(func.count()).select_from(grouped.subquery())
+        ) or 0
+        mobiles = (await self._s.execute(
+            grouped.order_by(func.count(Sale.id).desc())
+            .offset((page - 1) * size).limit(size)
+        )).all()
 
         items = []
         for mobile, cnt in mobiles:
@@ -256,15 +263,15 @@ class SalesService:
                 })
                 prev_date = s.sold_at
             name = next((s.student_name for s in sales if s.student_name), None)
-            total = sum(p["amount"] for p in purchases)
+            cust_total = sum(p["amount"] for p in purchases)
             items.append({
                 "mobile": mobile,
                 "student_name": name,
                 "count": int(cnt),
-                "total_amount": total,
+                "total_amount": cust_total,
                 "purchases": purchases,
             })
-        return {"items": items, "count": len(items)}
+        return {"items": items, "total": total, "page": page, "size": size}
 
     @staticmethod
     def _to_dict(s: Sale) -> dict:

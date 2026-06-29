@@ -7,6 +7,9 @@ import { faNum } from "@/lib/utils";
 import { J_MONTHS } from "@/lib/jalali";
 import { Plus, X, Loader2, Trash2, CalendarClock } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { Pagination } from "@/components/Pagination";
+
+const PAGE_SIZE = 50;
 
 const DEMO = isDemoMode();
 
@@ -29,11 +32,14 @@ function amountFa(toman: number): string {
 
 export function InstallmentsTab() {
   const qc = useQueryClient();
-  const { data } = useQuery<{ items: Plan[] }>({
-    queryKey: ["installments"],
-    queryFn: async () => (await api.get("/installments")).data,
+  const [page, setPage] = useState(1);
+  const { data } = useQuery<{ items: Plan[]; total?: number }>({
+    queryKey: ["installments", page],
+    queryFn: async () => (await api.get(`/installments?page=${page}&size=${PAGE_SIZE}`)).data,
+    placeholderData: (prev) => prev,
   });
   const items = data?.items ?? [];
+  const total = data?.total ?? items.length;
 
   const [showAdd, setShowAdd] = useState(false);
   // override محلیِ paid برای فیدبکِ فوری (و کارکرد در دمو)
@@ -155,6 +161,8 @@ export function InstallmentsTab() {
           </div>
         )}
       </div>
+
+      <Pagination page={page} size={PAGE_SIZE} total={total} onPage={setPage} />
 
       {showAdd && (
         <AddPlanModal

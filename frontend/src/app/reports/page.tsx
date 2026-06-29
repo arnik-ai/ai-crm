@@ -11,6 +11,9 @@ import { faNum, faDateTime, faDate, faDigits } from "@/lib/utils";
 import { getSession, isManager } from "@/lib/auth";
 import { ExportButton } from "@/components/ExportButton";
 import { JalaliDatePicker } from "@/components/JalaliDatePicker";
+import { Pagination } from "@/components/Pagination";
+
+const RPT_SIZE = 50;
 import { exportToExcel } from "@/lib/exportExcel";
 import {
   BarChart3,
@@ -198,20 +201,23 @@ export default function ReportsPage() {
     },
     enabled,
   });
-  const { data: incomplete } = useQuery<{ items: IncompleteStudent[] }>({
-    queryKey: ["students-incomplete"],
-    queryFn: async () => (await api.get("/students/incomplete")).data,
-    enabled,
+  const [incPage, setIncPage] = useState(1);
+  const { data: incomplete } = useQuery<{ items: IncompleteStudent[]; total?: number }>({
+    queryKey: ["students-incomplete", incPage],
+    queryFn: async () => (await api.get(`/students/incomplete?page=${incPage}&size=${RPT_SIZE}`)).data,
+    enabled, placeholderData: (p) => p,
   });
-  const { data: timeline } = useQuery<{ items: TimelineItem[] }>({
-    queryKey: ["sales-timeline"],
-    queryFn: async () => (await api.get("/sales/timeline")).data,
-    enabled,
+  const [tlPage, setTlPage] = useState(1);
+  const { data: timeline } = useQuery<{ items: TimelineItem[]; total?: number }>({
+    queryKey: ["sales-timeline", tlPage],
+    queryFn: async () => (await api.get(`/sales/timeline?page=${tlPage}&size=${RPT_SIZE}`)).data,
+    enabled, placeholderData: (p) => p,
   });
-  const { data: repeat } = useQuery<{ items: RepeatCustomer[] }>({
-    queryKey: ["sales-repeat"],
-    queryFn: async () => (await api.get("/sales/repeat-customers")).data,
-    enabled,
+  const [rcPage, setRcPage] = useState(1);
+  const { data: repeat } = useQuery<{ items: RepeatCustomer[]; total?: number }>({
+    queryKey: ["sales-repeat", rcPage],
+    queryFn: async () => (await api.get(`/sales/repeat-customers?page=${rcPage}&size=${RPT_SIZE}`)).data,
+    enabled, placeholderData: (p) => p,
   });
   const allCommItems = comms?.items ?? [];
   // فیلتر سمت کلاینت بر اساس نام یا موبایل (تا «پیام‌های این شخص» دیده شود)
@@ -762,6 +768,10 @@ export default function ReportsPage() {
               <p className="text-sm">اطلاعات همه کامل است. 👌</p>
             </div>
           )}
+          <div className="px-4">
+            <Pagination page={incPage} size={RPT_SIZE}
+              total={incomplete?.total ?? incompleteItems.length} onPage={setIncPage} />
+          </div>
         </div>
 
         {/* تایم‌لاین ورود → تماس → خرید */}
@@ -830,6 +840,10 @@ export default function ReportsPage() {
               <p className="text-sm">هنوز خریدی برای نمایش تایم‌لاین ثبت نشده است.</p>
             </div>
           )}
+          <div className="px-4">
+            <Pagination page={tlPage} size={RPT_SIZE}
+              total={timeline?.total ?? timelineItems.length} onPage={setTlPage} />
+          </div>
         </div>
 
         {/* مشتریان چندبارخرید — تعداد خرید، تاریخ‌ها و فاصله‌ی روز بین خریدها */}
@@ -903,6 +917,10 @@ export default function ReportsPage() {
               <p className="text-sm">هنوز مشتریِ چندبارخریدی ثبت نشده است.</p>
             </div>
           )}
+          <div className="p-4 pt-0">
+            <Pagination page={rcPage} size={RPT_SIZE}
+              total={repeat?.total ?? repeatItems.length} onPage={setRcPage} />
+          </div>
         </div>
       </main>
     </div>
