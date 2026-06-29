@@ -3,10 +3,17 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from src.modules.ai_analysis.domain.models import CallAnalysisResult
+from src.modules.ai_analysis.domain.models import CallAnalysisResult, ExtractedInfo
 from src.modules.ai_analysis.infrastructure.models import LeadScore
+from src.modules.crm.infrastructure.models import Activity, Student
 from src.modules.telephony.infrastructure.models import Call, Recording, Transcript
 from src.shared.db.base import SessionLocal
+
+# مقادیرِ مجاز برای پرکردنِ خودکار (هم‌خوان با enumهای CRM) — هر چیز خارج از این رد می‌شود.
+_ALLOWED_FIELDS = {"تجربی", "ریاضی", "انسانی", "سایر"}
+_ALLOWED_GRADES = {"دهم", "یازدهم", "دوازدهم", "فارغ‌التحصیل", "سایر"}
+# اگر اطمینانِ مدل کمتر از این بود، هیچ فیلدی پر نمی‌شود (داده‌ی مشکوک ننشیند).
+_MIN_AUTOFILL_CONFIDENCE = 0.6
 
 
 class AnalysisRepository:
@@ -69,6 +76,55 @@ class AnalysisRepository:
                     next_best_action=result.next_best_action,
                 ))
             await s.commit()
+
+    async def autofill_student_from_extraction(
+        self, student_id: str | None, extracted: ExtractedInfo | None
+    ) -> dict:
+        """فیلدهای **خالیِ** دانشجو را از اطلاعاتِ استخراج‌شده‌ی AI پر می‌کند.
+
+        🛡️ حفاظت‌های دیتابیس (بسیار مهم):
+        - فقط فیلدهای **خالی** پر می‌شوند؛ هرگز روی داده‌ی واردشده‌ی انسان بازنویسی نمی‌شود.
+        - **هیچ‌چیز حذف نمی‌شود**؛ فقط UPDATEِ مجموعه‌ی ثابتی از فیلدهای مجاز.
+        - اطمینانِ پایین (< MIN) → هیچ تغییری اعمال نمی‌شود (داده‌ی مشکوک ننشیند).
+        - رشته/پایه فقط اگر دقیقاً در فهرستِ مجاز باشند پذیرفته می‌شوند (ضدِ مقدارِ جعلی).
+        - موبایل هرگز از AI نوشته نمی‌شود.
+        - هر خطایی اینجا بی‌صدا رد می‌شود تا پایپ‌لاین نشکند.
+        """
+        if not student_id or extracted is None:
+            return {"filled": {}}
+        if (extracted.confidence or 0) < _MIN_AUTOFILL_CONFIDENCE:
+            return {"filled": {}, "skipped": "low_confidence"}
+
+        async with SessionLocal() as s:
+            student = await s.get(Student, UUID(student_id))
+            # فقط دانشجوی موجود و حذف‌نشده
+            if student is None or student.deleted_at is not None:
+                return {"filled": {}}
+
+            filled: dict = {}
+
+            def fill(attr: str, value, allowed: set | None = None) -> None:
+                if not value:
+                    return
+                if allowed is not None and value not in allowed:
+                    return  # مقدارِ خارج از فهرستِ مجاز را نادیده بگیر
+                if getattr(student, attr):
+                    return  # فقط فیلدِ خالی — هرگز بازنویسی نکن
+                setattr(student, attr, value)
+                filled[attr] = value
+
+            fill("full_name", extracted.full_name)
+            fill("goal", extracted.educational_goal)
+            fill("field", extracted.study_field, _ALLOWED_FIELDS)
+            fill("grade", extracted.grade, _ALLOWED_GRADES)
+            fill("city", extracted.city)
+
+            if filled:
+                # ثبتِ Activity برای ردگیری (چه چیزی را AI پر کرد)
+                s.add(Activity(student_id=student.id, type="ai_autofill",
+                               payload={"by": "ai", **filled}))
+                await s.commit()
+            return {"filled": filled}
 
     async def get_recording(self, call_id: str) -> dict | None:
         async with SessionLocal() as s:

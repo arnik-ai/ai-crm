@@ -39,5 +39,15 @@ async def run_pipeline_async(call_id: str) -> dict:
     )
 
     await repo.save_analysis(call_id, call.get("student_id"), result)
+
+    # 🆕 پرکردنِ خودکارِ فیلدهای خالیِ دانشجو از اطلاعاتِ استخراج‌شده (فاز A).
+    # کاملاً امن: فقط فیلدهای خالی، بدون حذف، با گیتِ اطمینان. خطا پایپ‌لاین را نمی‌شکند.
+    autofill = {"filled": {}}
+    try:
+        autofill = await repo.autofill_student_from_extraction(
+            call.get("student_id"), result.extracted)
+    except Exception:  # noqa: BLE001 — پرکردن نباید کلِ تحلیل را خراب کند
+        autofill = {"filled": {}, "error": True}
+
     return {"status": "analyzed", "lead_score": result.lead_score,
-            "needs_review": result.needs_review}
+            "needs_review": result.needs_review, "autofilled": autofill.get("filled", {})}

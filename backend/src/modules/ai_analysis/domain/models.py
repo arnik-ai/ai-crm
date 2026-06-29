@@ -14,6 +14,12 @@ class ExtractedInfo(BaseModel):
     full_name: Optional[str] = Field(None, description="نام کامل دانشجو/سرنخ")
     course_name: Optional[str] = Field(None, description="نام دوره‌ی موردعلاقه")
     educational_goal: Optional[str] = Field(None, description="هدف آموزشی")
+    # فیلدهای پروفایلِ CRM — فقط اگر در مکالمه صریح گفته شد؛ وگرنه null.
+    city: Optional[str] = Field(None, description="شهرِ دانش‌آموز (فقط اگر صریح گفته شد)")
+    study_field: Optional[Literal["تجربی", "ریاضی", "انسانی", "سایر"]] = Field(
+        None, description="رشته‌ی تحصیلی (فقط اگر گفته شد)")
+    grade: Optional[Literal["دهم", "یازدهم", "دوازدهم", "فارغ‌التحصیل", "سایر"]] = Field(
+        None, description="پایه‌ی تحصیلی (فقط اگر گفته شد)")
     registration_intention: Optional[Literal["high", "medium", "low", "none"]] = None
     objections: list[str] = Field(default_factory=list, description="اعتراض‌ها/موانع")
     budget_concern: Optional[bool] = Field(None, description="دغدغه‌ی بودجه/شهریه")
