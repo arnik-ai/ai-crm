@@ -216,6 +216,16 @@ docs/     → ۱۲ سند معماری فارسی
     - ⏳ **فاز B (مانده):** اتصالِ واقعیِ ورکانو — نیازمندِ مستندِ webhook/API ورکانو + کلید/secret
       + استقرارِ بک‌اند (DB/Redis/S3). `WorkanoProvider` فعلاً اسکلت است و باید با فرمتِ واقعی هماهنگ شود.
 
+33. **مقیاس‌پذیری (commitهای `c19cfe8`/`8aa5724`)** —
+    - ایندکس‌های عملکردی (migration `0008`): `calls(agent_id,started_at)`, `calls(outcome)`,
+      `sales(mobile)` + `pg_trgm` روی `students.full_name/mobile` (دفاعی؛ اگر اکستنشن نبود
+      migration نمی‌شکند). schema.sql هم‌خوان.
+    - صفحه‌بندیِ سرور-سمت + UI برای: اطلاعات ناقص (شرطِ ناقص به SQL منتقل شد)، اقساط،
+      تایم‌لاین خرید، مشتریان چندبارخرید. پاسخ `{items,total,page,size}`؛ `Pagination` در
+      فرانت با fallback (در دمو خودکار مخفی).
+    - ⏳ زیرساختی (موقع استقرار، نه کد): Read Replica، PgBouncer، load test. tenant-scoping
+      کامل هنوز انجام نشده (فقط اگر SaaS چندمؤسسه خواستی).
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
