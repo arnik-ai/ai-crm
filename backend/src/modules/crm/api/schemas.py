@@ -64,6 +64,7 @@ class StudentOut(BaseModel):
     lead_source: str | None = None
     status: str
     sales_stage_id: UUID | None
+    assigned_agent_id: UUID | None = None
     created_at: datetime
 
 

@@ -57,7 +57,10 @@ async def list_students(
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("students:read")),
 ) -> Paginated:
-    return await StudentService(session).list(page, size, stage, agent, status, q)
+    # مشاور فقط دانشجویانِ تخصیص‌یافته به خودش را می‌بیند؛ مدیر/ادمین همه را.
+    mgr = "admin" in user.roles or "sales_manager" in user.roles
+    scope_agent = agent if mgr else user.id
+    return await StudentService(session).list(page, size, stage, scope_agent, status, q)
 
 
 @router.get("/students/export")
@@ -85,6 +88,23 @@ async def list_incomplete_students(
 ) -> dict:
     """گزارش دانشجویانی که اطلاعاتشان ناقص است (نام/رشته/پایه/هدف/معدل/پیام/توضیح)."""
     return await StudentService(session).list_incomplete()
+
+
+@router.get("/students/advisors")
+async def list_advisors(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """لیستِ کاربرانِ فعال (مشاوران) برای dropdownِ تخصیصِ دانشجو."""
+    from sqlalchemy import select as _select
+
+    from src.modules.identity.infrastructure.models import User
+    rows = (await session.execute(
+        _select(User.id, User.full_name)
+        .where(User.is_active.is_(True))
+        .order_by(User.full_name)
+    )).all()
+    return {"items": [{"id": str(uid), "full_name": name} for uid, name in rows]}
 
 
 @router.get("/students/lookup")

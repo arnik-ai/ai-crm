@@ -22,6 +22,7 @@ from src.modules.crm.infrastructure.models import (
     SalesStage,
     Student,
 )
+from src.modules.identity.infrastructure.models import User
 from src.modules.telephony.infrastructure.models import Call
 from src.shared.errors.exceptions import ConflictError, NotFoundError
 from src.shared.security.audit import record_audit
@@ -38,12 +39,19 @@ class StudentService:
             .where(Call.student_id == Student.id)
             .correlate(Student).scalar_subquery()
         )
-        stmt = select(Student, call_count.label("call_count")).where(
-            Student.deleted_at.is_(None)
+        # نامِ مشاورِ تخصیص‌یافته (برای نمایش)
+        advisor_name = (
+            select(User.full_name)
+            .where(User.id == Student.assigned_agent_id)
+            .correlate(Student).scalar_subquery()
         )
+        stmt = select(
+            Student, call_count.label("call_count"), advisor_name.label("advisor_name")
+        ).where(Student.deleted_at.is_(None))
         if stage:
             stmt = stmt.where(Student.sales_stage_id == stage)
         if agent:
+            # مشاور = فقط دانشجویانِ تخصیص‌یافته به خودش (scope از روت تعیین می‌شود)
             stmt = stmt.where(Student.assigned_agent_id == agent)
         if status:
             stmt = stmt.where(Student.status == status)
@@ -58,9 +66,10 @@ class StudentService:
             await self._s.execute(stmt.offset((page - 1) * size).limit(size))
         ).all()
         items = []
-        for student, cc in rows:
+        for student, cc, adv in rows:
             data = StudentOut.model_validate(student).model_dump()
             data["call_count"] = int(cc or 0)
+            data["advisor_name"] = adv
             items.append(data)
         return Paginated(items=items, total=total or 0, page=page, size=size)
 

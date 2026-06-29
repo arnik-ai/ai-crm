@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { isDemoMode } from "@/lib/auth";
+import { isDemoMode, isManager, getSession } from "@/lib/auth";
 import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { ContactLinks } from "@/components/ContactLinks";
@@ -38,6 +38,8 @@ type Student = {
   lead_score?: number;
   stage?: string;
   last_call?: string;
+  assigned_agent_id?: string | null;
+  advisor_name?: string | null;
 };
 
 /** کانال‌های پیام برای مودال ارسال پیام. */
@@ -266,6 +268,9 @@ export default function StudentsPage() {
                           )}
                         </div>
                         <div className="text-xs text-slate-400" dir="ltr">{s.mobile}</div>
+                        {s.advisor_name && (
+                          <div className="text-[11px] text-indigo-500">مشاور: {s.advisor_name}</div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -343,8 +348,18 @@ function EditStudentModal({ student, onClose }: { student: Student; onClose: () 
   const [goal, setGoal] = useState(student.goal ?? "");
   const [gpa, setGpa] = useState(student.gpa != null ? String(student.gpa) : "");
   const [source, setSource] = useState(student.lead_source ?? "");
+  const [advisor, setAdvisor] = useState(student.assigned_agent_id ?? "");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // فقط مدیر/ادمین می‌تواند مشاور را تخصیص دهد
+  const canAssign = isManager(getSession());
+  const { data: advisorsData } = useQuery<{ items: { id: string; full_name: string }[] }>({
+    queryKey: ["advisors"],
+    queryFn: async () => (await api.get("/students/advisors")).data,
+    enabled: canAssign,
+  });
+  const advisors = advisorsData?.items ?? [];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -364,6 +379,8 @@ function EditStudentModal({ student, onClose }: { student: Student; onClose: () 
         goal: goal || null,
         gpa: gpa ? Number(gpa) : null,
         lead_source: source || null,
+        // تخصیصِ مشاور فقط وقتی مدیر است (وگرنه دست نمی‌خورد)
+        ...(canAssign ? { assigned_agent_id: advisor || null } : {}),
       });
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["students-incomplete"] });
@@ -413,6 +430,14 @@ function EditStudentModal({ student, onClose }: { student: Student; onClose: () 
             <option value="">منبع تماس…</option>
             {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
+          {/* تخصیصِ مشاور — فقط مدیر/ادمین */}
+          {canAssign && (
+            <select value={advisor} onChange={(e) => setAdvisor(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">مشاورِ مسئول… (بدون تخصیص)</option>
+              {advisors.map((a) => <option key={a.id} value={a.id}>{a.full_name}</option>)}
+            </select>
+          )}
           <div className="flex items-center justify-end gap-2 pt-1">
             {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
             <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">انصراف</button>

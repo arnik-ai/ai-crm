@@ -346,6 +346,15 @@ export const demoRepeatCustomers = {
   ],
 };
 
+// مشاوران (برای dropdownِ تخصیصِ دانشجو در حالت دمو)
+export const demoAdvisors = {
+  items: [
+    { id: "u1", full_name: "عباسی" },
+    { id: "u2", full_name: "فرحی" },
+    { id: "u3", full_name: "زند" },
+  ],
+};
+
 // اقساطِ برنامه (نمونه مطابق شیتِ کارفرما — مبلغ‌ها تومانِ کامل، نمایش هزار تومان)
 export const demoInstallments = {
   items: [
@@ -395,5 +404,6 @@ export const demoByPath: Record<string, unknown> = {
   "/sales/repeat-customers": demoRepeatCustomers,
   "/installments": demoInstallments,
   "/installments/meta": demoInstallmentsMeta,
+  "/students/advisors": demoAdvisors,
   "/dashboard/missing-next-call": demoMissingNextCall,
 };
