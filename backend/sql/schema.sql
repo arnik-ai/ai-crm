@@ -97,6 +97,17 @@ CREATE INDEX ix_students_agent  ON students(assigned_agent_id);
 CREATE INDEX ix_students_stage  ON students(sales_stage_id);
 CREATE INDEX ix_students_status ON students(status) WHERE deleted_at IS NULL;
 CREATE INDEX ix_students_mobile ON students(mobile);
+-- جستجوی سریعِ نام/موبایل (trigram) — دفاعی: اگر pg_trgm مجاز نبود رد می‌شود
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    CREATE INDEX IF NOT EXISTS ix_students_name_trgm
+        ON students USING gin (full_name gin_trgm_ops);
+    CREATE INDEX IF NOT EXISTS ix_students_mobile_trgm
+        ON students USING gin (mobile gin_trgm_ops);
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pg_trgm در دسترس نیست؛ ایندکس‌های trigram رد شدند.';
+END $$;
 
 CREATE TABLE tags (
     id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -165,6 +176,7 @@ CREATE INDEX ix_sales_sold    ON sales(sold_at DESC);
 CREATE INDEX ix_sales_agent   ON sales(agent_id);
 CREATE INDEX ix_sales_student ON sales(student_id);
 CREATE INDEX ix_sales_renewal ON sales(renewal_due_at) WHERE renewal_due_at IS NOT NULL;
+CREATE INDEX ix_sales_mobile  ON sales(mobile);
 
 -- آیتم‌های فیش فروش (مبلغ جدا برای هر محصول)
 CREATE TABLE sale_items (
@@ -234,6 +246,9 @@ CREATE TABLE calls (
 );
 CREATE INDEX ix_calls_student ON calls(student_id);
 CREATE INDEX ix_calls_started ON calls(started_at DESC);
+-- ایندکس‌های عملکردی (گزارش‌های هر نیرو + شمارشِ نتایج)
+CREATE INDEX ix_calls_agent_started ON calls(agent_id, started_at DESC);
+CREATE INDEX ix_calls_outcome ON calls(outcome);
 
 CREATE TABLE recordings (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
