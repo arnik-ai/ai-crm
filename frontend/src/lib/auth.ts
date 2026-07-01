@@ -79,6 +79,15 @@ export function isDemoMode(): boolean {
   return DEMO_FORCED;
 }
 
+/** خروج از حساب: پاک‌کردنِ کاملِ توکن‌ها و اطلاعاتِ نشست از مرورگر.
+ *  بعد از این، getSession دیگر ایمیل/نقش ندارد و کاربر باید دوباره وارد شود. */
+export function logout(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("demo_role");
+}
+
 /** آیا کاربر واقعاً وارد شده (توکن معتبر دارد)؟ در حالت دمو همیشه true. */
 export function isAuthenticated(): boolean {
   if (DEMO_FORCED) return true;

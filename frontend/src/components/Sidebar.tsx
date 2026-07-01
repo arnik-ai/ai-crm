@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, UserCog, ClipboardList, ShieldCheck, Menu, X } from "lucide-react";
-import { getSession, isManager, isAuthenticated } from "@/lib/auth";
+import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, UserCog, ClipboardList, ShieldCheck, Menu, X, LogOut } from "lucide-react";
+import { getSession, isManager, isAuthenticated, logout, type SessionInfo } from "@/lib/auth";
 
 // managerOnly: فقط مدیر فروش/ادمین می‌بیند (پنل مدیر فروش).
 const items = [
@@ -53,13 +53,21 @@ function BottomNav() {
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
-  // نقش کاربر را پس از mount می‌خوانیم تا hydration سمت سرور/کلاینت یکسان بماند.
-  const [manager, setManager] = useState(false);
+  const router = useRouter();
+  // نشستِ کاربر را پس از mount می‌خوانیم تا hydration سمت سرور/کلاینت یکسان بماند.
+  const [session, setSession] = useState<SessionInfo | null>(null);
   useEffect(() => {
-    setManager(isManager(getSession()));
+    setSession(getSession());
   }, []);
 
+  const manager = session ? isManager(session) : false;
   const visibleItems = items.filter((it) => !it.managerOnly || manager);
+
+  function handleLogout() {
+    logout();
+    onNavigate?.();
+    router.replace("/login");
+  }
 
   return (
     <>
@@ -91,8 +99,28 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-      <div className="mt-auto rounded-xl bg-slate-50 p-3 text-xs text-slate-400">
-        نسخه ۱.۰ — قدرت‌گرفته از هوش مصنوعی
+      <div className="mt-auto space-y-2 pt-4">
+        {/* کاربرِ واردشده */}
+        {session && !session.isDemo && (session.full_name || session.email) && (
+          <div className="rounded-xl bg-slate-50 p-3">
+            <div className="truncate text-sm font-bold text-slate-700">
+              {session.full_name || "کاربر"}
+            </div>
+            {session.email && (
+              <div className="truncate text-xs text-slate-400" dir="ltr">{session.email}</div>
+            )}
+          </div>
+        )}
+        {/* خروج از حساب — توکن‌ها و نشست کامل پاک می‌شود */}
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+        >
+          <LogOut size={18} /> خروج از حساب
+        </button>
+        <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-400">
+          نسخه ۱.۰ — قدرت‌گرفته از هوش مصنوعی
+        </div>
       </div>
     </>
   );
