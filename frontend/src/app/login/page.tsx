@@ -3,10 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { isDemoMode } from "@/lib/auth";
-import {
-  MessageSquare, Mail, Loader2, Phone, Lock, KeyRound,
-  Sparkles, BarChart3, PhoneCall, ShieldCheck,
-} from "lucide-react";
+import { MessageSquare, Mail, Loader2, Phone, Lock, KeyRound } from "lucide-react";
 
 type Tab = "otp" | "password";
 type OtpStep = "phone" | "code";
@@ -22,65 +19,46 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 p-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 p-4">
       {/* بلاب‌های تزئینیِ پس‌زمینه */}
-      <div className="pointer-events-none absolute -top-32 -right-24 h-96 w-96 rounded-full bg-blue-300/30 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-indigo-300/30 blur-3xl" />
+      <div className="pointer-events-none absolute -top-40 -right-32 h-96 w-96 rounded-full bg-blue-300/40 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-indigo-300/40 blur-3xl" />
 
-      <div className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200/70 md:grid-cols-2">
-        {/* پنلِ معرفی (فقط دسکتاپ) */}
-        <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-indigo-700 p-8 text-white md:flex">
-          <div className="pointer-events-none absolute -top-16 -left-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-xl font-extrabold shadow-inner backdrop-blur">
+      {/* کارتِ فرم با بوردرِ گرادیانی */}
+      <div className="relative z-10 w-full max-w-md rounded-[28px] bg-gradient-to-br from-blue-400/70 via-indigo-400/50 to-purple-400/70 p-[1.5px] shadow-2xl shadow-indigo-500/10">
+        <div className="rounded-[26px] border border-white/70 bg-white/90 p-7 backdrop-blur-xl sm:p-8">
+          {/* لوگو */}
+          <div className="mb-7 flex flex-col items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-2xl bg-blue-500/40 blur-lg" />
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-2xl font-black text-white shadow-lg">
                 C
               </div>
-              <span className="text-lg font-extrabold tracking-tight">CRM هوشمند</span>
             </div>
-            <h2 className="text-2xl font-black leading-relaxed">
-              مدیریتِ فروش و مشاوره،
-              <br />
-              هوشمند و ساده.
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-blue-100">
-              تماس‌ها، دانش‌آموزان و فروش را یک‌جا مدیریت کن؛ هوش مصنوعی خودش
-              خلاصه و پیگیری را برایت آماده می‌کند.
-            </p>
-          </div>
-          <ul className="relative mt-8 space-y-3 text-sm">
-            <Feature icon={<PhoneCall size={16} />} text="ثبتِ خودکارِ تماس‌ها و ضبطِ مکالمه" />
-            <Feature icon={<Sparkles size={16} />} text="خلاصه و تحلیلِ هوش مصنوعی" />
-            <Feature icon={<BarChart3 size={16} />} text="گزارش‌های فروش و عملکردِ تیم" />
-            <Feature icon={<ShieldCheck size={16} />} text="دسترسیِ نقش‌محور و امن" />
-          </ul>
-        </div>
-
-        {/* بخشِ فرم */}
-        <div className="p-6 sm:p-8">
-          {/* لوگو (روی موبایل) */}
-          <div className="mb-6 flex flex-col items-center gap-2 md:items-start">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-xl font-extrabold text-white shadow-md md:hidden">
-              C
+            <div className="text-center">
+              <h1 className="text-xl font-black text-slate-800">ورود به CRM هوشمند</h1>
+              <p className="mt-1 text-sm text-slate-500">برای ادامه، وارد شوید.</p>
             </div>
-            <h1 className="text-xl font-black text-slate-800">ورود به حساب</h1>
-            <p className="text-sm text-slate-500">برای ادامه، وارد شوید.</p>
           </div>
 
           {/* تب‌ها */}
-          <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+          <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/80 p-1">
             <button
               onClick={() => setTab("password")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition ${
-                tab === "password" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium transition ${
+                tab === "password"
+                  ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-500 hover:text-slate-700"
               }`}
             >
               <Mail size={15} /> ایمیل و رمز
             </button>
             <button
               onClick={() => setTab("otp")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition ${
-                tab === "otp" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium transition ${
+                tab === "otp"
+                  ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-500 hover:text-slate-700"
               }`}
             >
               <MessageSquare size={15} /> ورود با پیامک
@@ -94,9 +72,9 @@ export default function LoginPage() {
           )}
 
           {/* راهنمای ساخت حساب — چون CRM ثبت‌نامِ عمومی ندارد */}
-          <p className="mt-5 border-t border-slate-100 pt-4 text-center text-xs leading-5 text-slate-400">
+          <p className="mt-6 border-t border-slate-100 pt-4 text-center text-xs leading-5 text-slate-400">
             حسابِ جدید توسطِ <span className="font-medium text-slate-500">مدیرِ سیستم</span> در بخشِ
-            «کاربران» ساخته می‌شود؛ ثبت‌نامِ عمومی وجود ندارد.
+            «کاربران» ساخته می‌شود.
           </p>
 
           {DEMO && (
@@ -110,29 +88,18 @@ export default function LoginPage() {
   );
 }
 
-function Feature({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <li className="flex items-center gap-3">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur">
-        {icon}
-      </span>
-      <span className="text-blue-50">{text}</span>
-    </li>
-  );
-}
-
 /* ---------- ورودیِ زیبا با آیکن ---------- */
 function Field({
   icon, ...props
 }: { icon: React.ReactNode } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="relative">
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+    <div className="group relative">
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition group-focus-within:text-blue-500">
         {icon}
       </span>
       <input
         {...props}
-        className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-4 py-2.5 pr-10 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 pr-10 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
       />
     </div>
   );
@@ -142,7 +109,7 @@ function SubmitButton({ loading, children }: { loading: boolean; children: React
   return (
     <button
       disabled={loading}
-      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-blue-600 to-indigo-600 py-2.5 font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] disabled:opacity-60"
+      className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-blue-600 to-indigo-600 py-3 font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/40 active:scale-[0.98] disabled:opacity-60"
     >
       {loading && <Loader2 size={16} className="animate-spin" />}
       {children}
