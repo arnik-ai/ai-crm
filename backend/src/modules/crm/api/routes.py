@@ -54,13 +54,15 @@ async def list_students(
     agent: UUID | None = None,
     status: str | None = None,
     q: str | None = None,
+    today: bool = False,  # فقط سرنخ‌های ثبت‌شده‌ی امروز (برای «کارهای روز»)
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("students:read")),
 ) -> Paginated:
     # مشاور فقط دانشجویانِ تخصیص‌یافته به خودش را می‌بیند؛ مدیر/ادمین همه را.
     mgr = "admin" in user.roles or "sales_manager" in user.roles
     scope_agent = agent if mgr else user.id
-    return await StudentService(session).list(page, size, stage, scope_agent, status, q)
+    return await StudentService(session).list(page, size, stage, scope_agent,
+                                              status, q, today)
 
 
 @router.get("/students/export")

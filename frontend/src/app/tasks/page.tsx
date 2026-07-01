@@ -8,10 +8,11 @@ import { CallButton } from "@/components/CallButton";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDate } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
+import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 // (faDate برای نمایشِ تاریخِ ثبتِ شماره‌ی تکراری)
 import {
   ClipboardList, CalendarClock, PhoneMissed, PhoneOff, UserPlus, Loader2, Plus,
-  AlertTriangle, PhoneForwarded,
+  AlertTriangle, PhoneForwarded, Pencil, ClipboardCheck, X, Users,
 } from "lucide-react";
 
 const DEMO = isDemoMode();
@@ -90,6 +91,9 @@ export default function TasksPage() {
 
         {/* باکس شماره‌های جدید */}
         <NewNumberBox />
+
+        {/* سرنخ‌های امروز — کارت‌به‌کارت با تماس و ثبتِ نتیجه */}
+        <TodayLeads />
 
         {/* یادآور تمدید برنامه */}
         <RenewalReminders items={renewals} />
@@ -346,6 +350,7 @@ function NewNumberBox() {
       setFullName(""); setMobile(""); setSource(""); setDup(null);
       toast("شماره ثبت شد ✓");
       qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["today-leads"] });
     } catch {
       setMsg("ثبت ناموفق بود (شاید تکراری است).");
     } finally {
@@ -416,6 +421,439 @@ function NewNumberBox() {
           )}
         </form>
       )}
+    </div>
+  );
+}
+
+/* ---------- سرنخ‌های امروز (کارت‌به‌کارت با تماس و ثبتِ نتیجه) ---------- */
+type Lead = {
+  id: string;
+  full_name: string | null;
+  mobile: string;
+  city?: string | null;
+  field?: string | null;
+  grade?: string | null;
+  goal?: string | null;
+  gpa?: number | null;
+  lead_source?: string | null;
+  status?: string;
+  call_count?: number;
+  created_at?: string;
+};
+
+type SaleMeta = { products: string[]; program_months: number[] };
+
+const PROGRAM = "برنامه";
+const OUTCOMES = [
+  { v: "successful", label: "موفق" },
+  { v: "purchased", label: "خرید" },
+  { v: "unsuccessful", label: "ناموفق" },
+  { v: "busy", label: "مشغول/مشترک" },
+  { v: "no_answer", label: "پاسخ نداد" },
+  { v: "follow_up", label: "پیگیری" },
+];
+const OUTCOME_LABEL: Record<string, string> =
+  Object.fromEntries(OUTCOMES.map((o) => [o.v, o.label]));
+const EDIT_FIELDS = ["تجربی", "ریاضی", "انسانی", "سایر"];
+const EDIT_GRADES = ["دهم", "یازدهم", "دوازدهم", "فارغ‌التحصیل", "سایر"];
+const EDIT_SOURCES = ["سایت", "اینستاگرام", "تلگرام", "روبیکا", "بله", "پیامک", "سایر"];
+
+function TodayLeads() {
+  const { data } = useQuery<{ items: Lead[] }>({
+    queryKey: ["today-leads"],
+    queryFn: async () => (await api.get("/students?today=true&size=50")).data,
+  });
+  const leads = data?.items ?? [];
+  const [resultLead, setResultLead] = useState<Lead | null>(null);
+  const [editLead, setEditLead] = useState<Lead | null>(null);
+
+  return (
+    <div className="mt-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <Users size={18} className="text-blue-500" />
+        <h2 className="font-bold text-slate-800">سرنخ‌های امروز</h2>
+        <span className="mr-auto rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-600">
+          {faNum(leads.length)}
+        </span>
+      </div>
+      {leads.length === 0 ? (
+        <p className="py-8 text-center text-sm text-slate-400">
+          امروز شماره‌ای ثبت نکرده‌ای. از باکسِ بالا «شماره‌ی جدید» را بزن تا اینجا کارت شود.
+        </p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {leads.map((l) => (
+            <LeadCard
+              key={l.id}
+              lead={l}
+              onResult={() => setResultLead(l)}
+              onEdit={() => setEditLead(l)}
+            />
+          ))}
+        </div>
+      )}
+      {resultLead && <LeadResultModal lead={resultLead} onClose={() => setResultLead(null)} />}
+      {editLead && <LeadEditModal lead={editLead} onClose={() => setEditLead(null)} />}
+    </div>
+  );
+}
+
+function LeadCard({
+  lead, onResult, onEdit,
+}: { lead: Lead; onResult: () => void; onEdit: () => void }) {
+  const hasInfo = lead.field || lead.grade || lead.goal || lead.gpa != null || lead.city || lead.lead_source;
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/60 p-3.5 shadow-sm transition hover:shadow-md">
+      {/* نام + شماره */}
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-600">
+          {(lead.full_name ?? "?").charAt(0)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-semibold text-slate-800">{lead.full_name || "بدون نام"}</div>
+          <div className="text-xs text-slate-400" dir="ltr">{lead.mobile}</div>
+        </div>
+        {!!lead.call_count && (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
+            {faNum(lead.call_count)} تماس
+          </span>
+        )}
+      </div>
+
+      {/* باکس‌های اطلاعات: پایه/رشته · هدف · معدل · شهر · منبع */}
+      {hasInfo ? (
+        <div className="flex flex-wrap gap-1.5 text-xs">
+          {(lead.field || lead.grade) && (
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700">
+              {[lead.grade, lead.field].filter(Boolean).join(" · ")}
+            </span>
+          )}
+          {lead.goal && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">🎯 {lead.goal}</span>}
+          {lead.gpa != null && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">معدل {faNum(lead.gpa)}</span>}
+          {lead.city && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">📍 {lead.city}</span>}
+          {lead.lead_source && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-violet-700">{lead.lead_source}</span>}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400">اطلاعاتش را با دکمه‌ی «مداد» کامل کن.</p>
+      )}
+
+      {/* اقدام‌ها: تماس · ثبت نتیجه · ویرایش */}
+      <div className="mt-auto flex items-center gap-2">
+        <CallButton mobile={lead.mobile} size="sm" />
+        <button
+          onClick={onResult}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+        >
+          <ClipboardCheck size={14} /> ثبت نتیجه
+        </button>
+        <button
+          onClick={onEdit}
+          title="ویرایش / تکمیل اطلاعات"
+          className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
+        >
+          <Pencil size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- مودال ثبت نتیجه‌ی تماسِ سرنخ (+ خرید → فیش، + تماس بعدی → پیگیری) ---------- */
+function LeadResultModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [outcome, setOutcome] = useState("");
+  const [nextDate, setNextDate] = useState("");
+  const [nextTime, setNextTime] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+  const isPurchase = outcome === "purchased";
+
+  const { data: meta } = useQuery<SaleMeta>({
+    queryKey: ["sales-meta"],
+    queryFn: async () => (await api.get("/sales/meta")).data,
+    enabled: isPurchase && !DEMO,
+  });
+
+  const [sel, setSel] = useState<Record<string, { months: number | "" }>>({});
+  const [payAmount, setPayAmount] = useState("");
+  const [saleDate, setSaleDate] = useState("");
+  const [depDate, setDepDate] = useState("");
+  const [depTime, setDepTime] = useState("");
+  const [payerCard, setPayerCard] = useState("");
+  const [destAccount, setDestAccount] = useState("");
+  const [payRef, setPayRef] = useState("");
+
+  function toggle(p: string) {
+    setSel((s) => { const n = { ...s }; if (n[p]) delete n[p]; else n[p] = { months: "" }; return n; });
+  }
+  function patch(p: string, x: Partial<{ months: number | "" }>) {
+    setSel((s) => ({ ...s, [p]: { ...s[p], ...x } }));
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!outcome && !nextDate) { setMsg("حداقل نتیجه یا تاریخ تماس بعدی را وارد کنید."); return; }
+    const picked = Object.entries(sel);
+    if (isPurchase) {
+      if (picked.length === 0) { setMsg("حداقل یک محصول را تیک بزنید."); return; }
+      for (const [p, v] of picked) if (p === PROGRAM && !v.months) { setMsg("برای «برنامه»، مدت را انتخاب کنید."); return; }
+      if (!payAmount || Number(payAmount) <= 0) { setMsg("مبلغِ واریز را وارد کنید."); return; }
+    }
+    setMsg(""); setLoading(true);
+    try {
+      if (DEMO) { setMsg("در حالت نمایشی ذخیره نمی‌شود."); setLoading(false); return; }
+      if (isPurchase) {
+        await api.post("/sales", {
+          student_name: lead.full_name || lead.mobile,
+          mobile: lead.mobile,
+          student_id: lead.id,
+          sold_at: saleDate ? new Date(`${saleDate}T12:00`).toISOString() : null,
+          items: picked.map(([product, v]) => ({
+            product, program_months: product === PROGRAM ? v.months : null,
+          })),
+          amount: (Number(payAmount) || 0) * 1000,
+          deposited_at: depDate ? new Date(`${depDate}T${depTime || "00:00"}`).toISOString() : null,
+          payer_card: payerCard || null,
+          dest_account: destAccount || null,
+          payment_ref: payRef || null,
+        });
+      }
+      if (nextDate) {
+        await api.post("/followups", {
+          student_id: lead.id,
+          due_at: new Date(`${nextDate}T${nextTime || "09:00"}`).toISOString(),
+          note: note || null,
+        });
+      }
+      // نتیجه‌ی مکالمه به‌صورتِ یادداشت روی سرنخ ثبت می‌شود (تماسِ دستی رکوردِ تلفنی ندارد)
+      const outcomeText = outcome ? `نتیجه‌ی تماس: ${OUTCOME_LABEL[outcome] ?? outcome}` : "تماس دستی";
+      await api.post(`/students/${lead.id}/notes`, {
+        body: note ? `${outcomeText} — ${note}` : outcomeText,
+      });
+      qc.invalidateQueries({ queryKey: ["today-leads"] });
+      qc.invalidateQueries({ queryKey: ["tasks-today"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      toast(isPurchase ? "خرید ثبت و فیش ساخته شد ✓" : "نتیجه‌ی تماس ثبت شد ✓");
+      onClose();
+    } catch { setMsg("ثبت ناموفق بود."); setLoading(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <ClipboardCheck size={18} className="text-emerald-600" /> ثبت نتیجه‌ی تماس
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <p className="mb-3 text-sm text-slate-500">
+          {lead.full_name ?? "بدون نام"} · <span dir="ltr">{lead.mobile}</span>
+        </p>
+
+        <form onSubmit={submit} className="space-y-4">
+          {/* نتیجه‌ی تماس */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">نتیجه‌ی تماس</label>
+            <div className="flex flex-wrap gap-2">
+              {OUTCOMES.map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setOutcome(o.v === outcome ? "" : o.v)}
+                  className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                    outcome === o.v
+                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200"
+                      : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* فرم فیشِ خرید — فقط وقتی نتیجه = «خرید» */}
+          {isPurchase && (
+            <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+              <div className="text-sm font-semibold text-emerald-800">ثبت فیش خرید — می‌رود تو لیست فروش</div>
+              <div className="space-y-1.5">
+                {(meta?.products ?? []).map((p) => {
+                  const picked = !!sel[p];
+                  return (
+                    <div key={p} className={`rounded-lg border p-2 ${picked ? "border-emerald-300 bg-emerald-50/60" : "border-slate-200 bg-white"}`}>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input type="checkbox" checked={picked} onChange={() => toggle(p)} className="h-4 w-4 accent-emerald-600" />
+                        <span className="flex-1 text-sm text-slate-700">{p}</span>
+                      </label>
+                      {picked && p === PROGRAM && (
+                        <select
+                          value={sel[p].months}
+                          onChange={(e) => patch(p, { months: Number(e.target.value) })}
+                          className="mt-2 w-full rounded-lg border border-indigo-300 bg-indigo-50/40 px-2 py-2 text-sm outline-none focus:border-indigo-400"
+                        >
+                          <option value="" disabled>مدت برنامه…</option>
+                          {(meta?.program_months ?? []).map((m) => (
+                            <option key={m} value={m}>{faNum(m)} ماه</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div>
+                <input
+                  type="number" placeholder="مبلغ واریز (هزار تومان)" value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400" dir="ltr" min={0}
+                />
+                {Number(payAmount) > 0 && (
+                  <div className="mt-1 text-xs text-emerald-600">= {faNum(Number(payAmount) * 1000)} تومان</div>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500">تاریخ فروش:</span>
+                <JalaliDatePicker value={saleDate} onChange={setSaleDate} placeholder="امروز" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500">تاریخ/ساعت واریز:</span>
+                <JalaliDatePicker value={depDate} onChange={setDepDate} placeholder="تاریخ" />
+                <input type="time" value={depTime} onChange={(e) => setDepTime(e.target.value)}
+                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400" dir="ltr" />
+              </div>
+              <input placeholder="کارت واریزکننده" value={payerCard} onChange={(e) => setPayerCard(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400" dir="ltr" />
+              <input placeholder="بانک مقصد / حساب ما (به دلخواه)" value={destAccount} onChange={(e) => setDestAccount(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400" />
+              <input placeholder="جزئیات واریز (کد رهگیری) — اختیاری" value={payRef} onChange={(e) => setPayRef(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400" dir="ltr" />
+            </div>
+          )}
+
+          {/* تاریخ تماس بعدی — برای «ناموفق»/«مشترک» لازم نیست */}
+          {!isPurchase && outcome !== "unsuccessful" && outcome !== "busy" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                تاریخ و ساعت تماس بعدی <span className="font-normal text-slate-400">(اختیاری)</span>
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <JalaliDatePicker value={nextDate} onChange={setNextDate} placeholder="تاریخ (شمسی)" />
+                <input type="time" value={nextTime} onChange={(e) => setNextTime(e.target.value)}
+                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400" dir="ltr" />
+              </div>
+              <p className="mt-1 text-xs text-slate-400">اگر تاریخ تعیین شود، یک پیگیری ساخته می‌شود (ساعت پیش‌فرض ۹ صبح).</p>
+            </div>
+          )}
+
+          {/* توضیح */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              توضیح <span className="font-normal text-slate-400">(اختیاری)</span>
+            </label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+              placeholder="مثلاً: درخواست اطلاعات بیشتر داشت…"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400" />
+          </div>
+
+          <div className="sticky bottom-0 -mx-5 -mb-5 flex items-center justify-end gap-2 border-t border-slate-100 bg-white px-5 py-3">
+            {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
+            <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">انصراف</button>
+            <button disabled={loading} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60">
+              {loading && <Loader2 size={15} className="animate-spin" />} ثبت نتیجه
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- مودال ویرایش/تکمیل اطلاعاتِ سرنخ ---------- */
+function LeadEditModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [fullName, setFullName] = useState(lead.full_name ?? "");
+  const [city, setCity] = useState(lead.city ?? "");
+  const [fld, setFld] = useState(lead.field ?? "");
+  const [grade, setGrade] = useState(lead.grade ?? "");
+  const [goal, setGoal] = useState(lead.goal ?? "");
+  const [gpa, setGpa] = useState(lead.gpa != null ? String(lead.gpa) : "");
+  const [source, setSource] = useState(lead.lead_source ?? "");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(""); setLoading(true);
+    try {
+      if (DEMO) { setMsg("در حالت نمایشی ذخیره نمی‌شود."); setLoading(false); return; }
+      await api.patch(`/students/${lead.id}`, {
+        full_name: fullName || null,
+        city: city || null,
+        field: fld || null,
+        grade: grade || null,
+        goal: goal || null,
+        gpa: gpa ? Number(gpa) : null,
+        lead_source: source || null,
+      });
+      qc.invalidateQueries({ queryKey: ["today-leads"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      toast("اطلاعات ذخیره شد ✓");
+      onClose();
+    } catch { setMsg("ذخیره ناموفق بود."); setLoading(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <Pencil size={18} className="text-blue-600" /> ویرایش / تکمیل اطلاعات
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <p className="mb-4 text-sm text-slate-500" dir="ltr">{lead.mobile}</p>
+        <form onSubmit={submit} className="space-y-3">
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="نام و نام خانوادگی"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <select value={fld} onChange={(e) => setFld(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">رشته…</option>
+              {EDIT_FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            <select value={grade} onChange={(e) => setGrade(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">پایه…</option>
+              {EDIT_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="هدف"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <input value={gpa} onChange={(e) => setGpa(e.target.value)} type="number" placeholder="معدل" min={0} max={20} step="0.01"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" dir="ltr" />
+            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="شهر"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          </div>
+          <select value={source} onChange={(e) => setSource(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+            <option value="">منبع تماس…</option>
+            {EDIT_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
+            <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">انصراف</button>
+            <button disabled={loading} className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60">
+              {loading && <Loader2 size={15} className="animate-spin" />} ذخیره
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

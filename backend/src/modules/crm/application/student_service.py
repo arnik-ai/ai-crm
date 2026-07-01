@@ -32,7 +32,7 @@ class StudentService:
     def __init__(self, session: AsyncSession):
         self._s = session
 
-    async def list(self, page, size, stage, agent, status, q) -> Paginated:
+    async def list(self, page, size, stage, agent, status, q, today=False) -> Paginated:
         # تعداد تماس هر دانشجو (با شماره‌ی موبایلش) تا کنار نام دیده شود.
         call_count = (
             select(func.count(Call.id))
@@ -58,6 +58,17 @@ class StudentService:
         if q:
             like = f"%{q}%"
             stmt = stmt.where(Student.full_name.ilike(like) | Student.mobile.ilike(like))
+        if today:
+            # ابتدای امروز به وقتِ تهران (UTC+3:30) → تبدیل به UTC برای مقایسه
+            from datetime import datetime, timedelta, timezone
+            tehran = timezone(timedelta(hours=3, minutes=30))
+            start = (datetime.now(tehran)
+                     .replace(hour=0, minute=0, second=0, microsecond=0)
+                     .astimezone(timezone.utc))
+            stmt = stmt.where(Student.created_at >= start)
+
+        # جدیدترین‌ها ابتدا (هم برای «امروز» و هم صفحه‌بندیِ پایدار)
+        stmt = stmt.order_by(Student.created_at.desc())
 
         total = await self._s.scalar(
             select(func.count()).select_from(stmt.subquery())
@@ -86,7 +97,10 @@ class StudentService:
             city=body.city, field=body.field, grade=body.grade,
             goal=body.goal, gpa=body.gpa,
             course_interest_id=body.course_interest_id,
-            lead_source=body.lead_source, assigned_agent_id=body.assigned_agent_id,
+            lead_source=body.lead_source,
+            # اگر مشاورِ مشخصی داده نشده، سرنخ به سازنده‌اش تخصیص می‌یابد
+            # (تا کارشناس سرنخِ خودش را در «سرنخ‌های امروز» ببیند).
+            assigned_agent_id=body.assigned_agent_id or actor_id,
         )
         self._s.add(student)
         await self._s.flush()
