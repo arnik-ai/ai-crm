@@ -24,9 +24,9 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -top-40 -right-32 h-96 w-96 rounded-full bg-blue-300/40 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-indigo-300/40 blur-3xl" />
 
-      {/* کارتِ فرم با بوردرِ گرادیانی */}
-      <div className="relative z-10 w-full max-w-md rounded-[28px] bg-gradient-to-br from-blue-400/70 via-indigo-400/50 to-purple-400/70 p-[1.5px] shadow-2xl shadow-indigo-500/10">
-        <div className="rounded-[26px] border border-white/70 bg-white/90 p-7 backdrop-blur-xl sm:p-8">
+      {/* کارتِ فرم با بوردرِ گرادیانیِ واضح */}
+      <div className="relative z-10 w-full max-w-md rounded-[30px] bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 p-[3px] shadow-2xl shadow-indigo-500/30">
+        <div className="rounded-[27px] bg-white p-7 ring-1 ring-inset ring-slate-100 sm:p-9">
           {/* لوگو */}
           <div className="mb-7 flex flex-col items-center gap-3">
             <div className="relative">
