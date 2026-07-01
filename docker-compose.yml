@@ -1,0 +1,55 @@
+# استقرارِ کاملِ CRM با یک دستور:  docker compose up -d --build
+# سرویس‌ها: api (FastAPI) + worker (Celery) + postgres + redis
+# همه با restart: unless-stopped → بعد از ریبوتِ سرور خودکار بالا می‌آیند.
+services:
+  api:
+    build: ./backend
+    # قبل از اجرا: ساختِ جدول‌ها (alembic) + دادهٔ اولیه (seed) سپس سرور
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m app.seed &&
+             gunicorn -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 2 app.main:app"
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2 -Q telephony,llm
+    env_file:
+      - ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: crmpass
+      POSTGRES_DB: crm
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  pg_data:
