@@ -1,12 +1,22 @@
-"""هش و بررسی رمز عبور با bcrypt."""
-from passlib.context import CryptContext
+"""هش و بررسی رمز عبور با bcrypt (مستقیم — سازگار با bcrypt نسخه‌ی جدید ۵.x).
 
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+قبلاً از passlib استفاده می‌شد که با bcrypt جدید ناسازگار بود و خطای «۷۲ بایت»
+می‌داد. اینجا مستقیم از خودِ کتابخانه‌ی bcrypt استفاده می‌کنیم (پایدار و بدون
+وابستگیِ نسخه‌ای). bcrypt حداکثر ۷۲ بایت رمز را می‌پذیرد؛ بلندتر کوتاه می‌شود.
+"""
+import bcrypt
+
+
+def _to_bytes(plain: str) -> bytes:
+    return plain.encode("utf-8")[:72]
 
 
 def hash_password(plain: str) -> str:
-    return _pwd.hash(plain)
+    return bcrypt.hashpw(_to_bytes(plain), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return _pwd.verify(plain, hashed)
+    try:
+        return bcrypt.checkpw(_to_bytes(plain), hashed.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
