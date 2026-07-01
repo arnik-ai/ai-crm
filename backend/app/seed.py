@@ -75,7 +75,8 @@ async def seed() -> None:
         await s.flush()
 
         # کاربر ادمین
-        admin_email = os.getenv("SEED_ADMIN_EMAIL", "admin@crm.local")
+        # نکته: دامنه‌ی .local توسط اعتبارسنجِ ایمیل رد می‌شود؛ از دامنه‌ی معتبر استفاده کن.
+        admin_email = os.getenv("SEED_ADMIN_EMAIL", "admin@konkurestan.ir")
         admin_pass = os.getenv("SEED_ADMIN_PASSWORD", "Admin@12345")
         admin = await s.scalar(select(User).where(User.email == admin_email))
         if admin is None:
