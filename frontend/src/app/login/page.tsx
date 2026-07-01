@@ -19,25 +19,37 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 p-4">
-      {/* بلاب‌های تزئینیِ پس‌زمینه */}
-      <div className="pointer-events-none absolute -top-40 -right-32 h-96 w-96 rounded-full bg-blue-300/40 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-indigo-300/40 blur-3xl" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#2c3e5c] via-[#334766] to-[#3b5378] p-4">
+      {/* بلاب‌های تزئینیِ پس‌زمینه (هم‌رنگِ برند، ملایم روی زمینه‌ی سرمه‌ای) */}
+      <div className="pointer-events-none absolute -top-40 -right-32 h-96 w-96 rounded-full bg-blue-500/25 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-indigo-500/25 blur-3xl" />
 
-      {/* کارتِ فرم با بوردرِ گرادیانیِ واضح */}
-      <div className="relative z-10 w-full max-w-md rounded-[30px] bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 p-[3px] shadow-2xl shadow-indigo-500/30">
+      {/* کارتِ فرم با بوردرِ گرادیانیِ برند (آبی→نیلی) */}
+      <div className="relative z-10 w-full max-w-md rounded-[30px] bg-gradient-to-br from-blue-500 to-indigo-600 p-[3px] shadow-2xl shadow-black/30">
         <div className="rounded-[27px] bg-white p-7 ring-1 ring-inset ring-slate-100 sm:p-9">
-          {/* لوگو */}
+          {/* برند */}
           <div className="mb-7 flex flex-col items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 rounded-2xl bg-blue-500/40 blur-lg" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-2xl font-black text-white shadow-lg">
-                C
+              <div className="absolute inset-0 rounded-2xl bg-indigo-500/50 blur-xl" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-3xl font-black text-white shadow-lg shadow-indigo-500/40">
+                K
               </div>
             </div>
             <div className="text-center">
-              <h1 className="text-xl font-black text-slate-800">ورود به CRM هوشمند</h1>
-              <p className="mt-1 text-sm text-slate-500">برای ادامه، وارد شوید.</p>
+              <div className="flex items-center justify-center gap-2">
+                <h1 className="bg-gradient-to-l from-blue-600 to-indigo-600 bg-clip-text text-2xl font-black text-transparent">
+                  CRM کنکورستان
+                </h1>
+                <span className="rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 px-1.5 py-0.5 text-[11px] font-black text-white shadow-sm">
+                  AI
+                </span>
+              </div>
+              <p className="mt-1.5 text-[11px] font-bold tracking-[0.25em] text-slate-400">
+                KONKURESTAN&nbsp;AI&nbsp;CRM
+              </p>
+              <p className="mt-2.5 text-sm text-slate-500">
+                سامانه‌ی هوشمندِ مدیریتِ فروش و مشاوره
+              </p>
             </div>
           </div>
 
