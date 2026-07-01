@@ -37,8 +37,8 @@ export default function LoginPage() {
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-2">
-                <h1 className="bg-gradient-to-l from-blue-600 to-indigo-600 bg-clip-text text-2xl font-black text-transparent">
-                  CRM کنکورستان
+                <h1 className="text-2xl font-black text-slate-800">
+                  <span className="text-blue-600">CRM</span> کنکورستان
                 </h1>
                 <span className="rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 px-1.5 py-0.5 text-[11px] font-black text-white shadow-sm">
                   AI
