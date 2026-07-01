@@ -5,6 +5,10 @@ import { demoByPath } from "./demoData";
 // وقتی بک‌اند واقعی وصل شد، با تنظیم NEXT_PUBLIC_DEMO=0 خاموش می‌شود.
 const DEMO_FORCED = process.env.NEXT_PUBLIC_DEMO !== "0";
 
+// آدرسِ بک‌اندِ واقعی. اگر خالی باشد (لوکال)، مسیرِ نسبی استفاده می‌شود و rewrites
+// در next.config پراکسی می‌کند. روی GitHub Pages این مقدار به سرورِ https تنظیم می‌شود.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+
 function demoFor(url?: string) {
   if (!url) return undefined;
   const path = url.replace(/^\/api\/v1/, "").split("?")[0];
@@ -12,7 +16,7 @@ function demoFor(url?: string) {
 }
 
 export const api = axios.create({
-  baseURL: "/api/v1",
+  baseURL: `${API_BASE}/api/v1`,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -59,7 +63,7 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem("refresh_token");
       if (refresh) {
         try {
-          const { data } = await axios.post("/api/v1/auth/refresh", {
+          const { data } = await axios.post(`${API_BASE}/api/v1/auth/refresh`, {
             refresh_token: refresh,
           });
           localStorage.setItem("access_token", data.access_token);
