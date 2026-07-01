@@ -7,7 +7,6 @@ services:
     # قبل از اجرا: ساختِ جدول‌ها (alembic) + دادهٔ اولیه (seed) سپس سرور
     command: >
       sh -c "alembic upgrade head &&
-             python -m app.seed &&
              gunicorn -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 2 app.main:app"
     env_file:
       - ./backend/.env
