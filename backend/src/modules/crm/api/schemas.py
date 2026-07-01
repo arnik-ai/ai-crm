@@ -181,6 +181,20 @@ class SaleCreate(BaseModel):
         return _normalize_mobile(v)
 
 
+class SaleUpdate(BaseModel):
+    """ویرایشِ فیش — همه‌ی فیلدها اختیاری؛ فقط موارد ارسال‌شده تغییر می‌کنند.
+    اگر items داده شود، آیتم‌های قبلی جایگزین می‌شوند."""
+    student_name: str | None = None
+    items: list[SaleItemIn] | None = None
+    amount: float | None = Field(default=None, ge=0)
+    sold_at: datetime | None = None
+    deposited_at: datetime | None = None
+    payer_card: str | None = None
+    dest_account: str | None = None
+    payment_ref: str | None = None
+    note: str | None = None
+
+
 class SaleOut(BaseModel):
     id: str
     student_name: str | None = None

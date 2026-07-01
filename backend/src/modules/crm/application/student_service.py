@@ -164,6 +164,9 @@ class StudentService:
         )
         if status:
             stmt = stmt.where(Followup.status == status)
+        else:
+            # به‌صورتِ پیش‌فرض، پیگیری‌های «انجام‌شده» در لیست نمایش داده نمی‌شوند
+            stmt = stmt.where(Followup.status != "done")
         total = await self._s.scalar(select(func.count()).select_from(stmt.subquery()))
         rows = (await self._s.execute(
             stmt.order_by(Followup.due_at).offset((page - 1) * size).limit(size)
@@ -188,6 +191,23 @@ class StudentService:
         self._s.add(fu)
         await self._s.commit()
         return {"id": str(fu.id), "status": "created"}
+
+    async def set_followup_status(self, followup_id: UUID, status: str,
+                                  actor_id: str) -> dict:
+        fu = await self._s.get(Followup, followup_id)
+        if fu is None:
+            raise NotFoundError("پیگیری یافت نشد")
+        fu.status = status
+        await self._s.commit()
+        return {"id": str(fu.id), "status": fu.status}
+
+    async def delete_followup(self, followup_id: UUID, actor_id: str) -> dict:
+        fu = await self._s.get(Followup, followup_id)
+        if fu is None:
+            raise NotFoundError("پیگیری یافت نشد")
+        await self._s.delete(fu)
+        await self._s.commit()
+        return {"status": "deleted"}
 
     async def list_sales(self, page, size) -> dict:
         """لیست فروش = دانشجویانی که به مرحله‌ی ترمینالِ ثبت‌نام رسیده‌اند.

@@ -1,13 +1,14 @@
 """سرویس فروش (فیش) — ثبت و فهرست فروشِ واقعی از جدول sales."""
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.crm.api.schemas import PROGRAM_PRODUCT, SaleCreate
+from src.modules.crm.api.schemas import PROGRAM_PRODUCT, SaleCreate, SaleUpdate
 from src.modules.crm.application.student_service import StudentService
 from src.modules.crm.infrastructure.models import Followup, Sale, SaleItem, Student
 from src.modules.telephony.infrastructure.models import Call
+from src.shared.errors.exceptions import NotFoundError
 from src.shared.security.audit import record_audit
 
 # چند روز پس از خرید، یک تماس پیگیری خودکار برای مشتری ساخته می‌شود.
@@ -103,6 +104,51 @@ class SalesService:
             for it in body.items
         ]
         return result
+
+    async def update_sale(self, sale_id, body: SaleUpdate, actor_id: str) -> dict:
+        """ویرایشِ فیش — فیلدهای ارسال‌شده به‌روزرسانی می‌شوند؛ اگر items بیاید،
+        آیتم‌های قبلی جایگزین و خلاصه/موعدِ تمدید بازمحاسبه می‌شوند."""
+        sale = await self._s.get(Sale, sale_id)
+        if sale is None:
+            raise NotFoundError("فیش یافت نشد")
+        data = body.model_dump(exclude_unset=True)
+        items = data.pop("items", None)
+        # تاریخِ فروش برای بازمحاسبه‌ی موعدِ تمدید
+        sold_at = data.get("sold_at") or sale.sold_at
+        if sold_at is not None and sold_at.tzinfo is None:
+            sold_at = sold_at.replace(tzinfo=timezone.utc)
+        for k, v in data.items():
+            setattr(sale, k, v)
+        if items is not None:
+            await self._s.execute(delete(SaleItem).where(SaleItem.sale_id == sale.id))
+            program_item = next(
+                (it for it in items if it["product"] == PROGRAM_PRODUCT), None)
+            sale.product = items[0]["product"] if len(items) == 1 else "چند محصول"
+            sale.program_months = program_item["program_months"] if program_item else None
+            sale.renewal_due_at = (
+                _add_months(sold_at, program_item["program_months"])
+                if program_item and program_item.get("program_months") else None
+            )
+            for it in items:
+                self._s.add(SaleItem(
+                    sale_id=sale.id, product=it["product"],
+                    program_months=it.get("program_months"), amount=0,
+                ))
+        await record_audit(self._s, actor_id=actor_id, action="update",
+                           entity="sale", entity_id=str(sale.id), diff=data)
+        await self._s.commit()
+        return self._to_dict(sale)
+
+    async def delete_sale(self, sale_id, actor_id: str) -> dict:
+        """حذفِ فیش (آیتم‌هایش با CASCADE پاک می‌شوند)."""
+        sale = await self._s.get(Sale, sale_id)
+        if sale is None:
+            raise NotFoundError("فیش یافت نشد")
+        await record_audit(self._s, actor_id=actor_id, action="delete",
+                           entity="sale", entity_id=str(sale_id))
+        await self._s.delete(sale)
+        await self._s.commit()
+        return {"status": "deleted"}
 
     async def list_sales(self, page: int, size: int) -> dict:
         stmt = select(Sale).order_by(Sale.sold_at.desc())

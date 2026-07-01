@@ -13,7 +13,7 @@ import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
-import { Search, Users, GraduationCap, Phone, MessageSquare, X, Loader2, Send, Pencil, Trash2 } from "lucide-react";
+import { Search, Users, GraduationCap, Phone, MessageSquare, X, Loader2, Send, Pencil, Trash2, UserPlus } from "lucide-react";
 
 const DEMO = isDemoMode();
 
@@ -161,6 +161,7 @@ export default function StudentsPage() {
   const [msgStudent, setMsgStudent] = useState<Student | null>(null);
   // دانشجویی که مودال ویرایش/تکمیل برایش باز است
   const [editStudent, setEditStudent] = useState<Student | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   const items: Student[] = useMemo(() => {
     let list: Student[] = data?.items ?? [];
@@ -191,6 +192,12 @@ export default function StudentsPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowAdd(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 active:scale-95"
+            >
+              <UserPlus size={16} /> افزودن
+            </button>
             <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="دانشجویان" />
             <ExportAllButton endpoint="/students/export" filename="همه-دانشجویان" />
             <BackButton dark />
@@ -333,7 +340,103 @@ export default function StudentsPage() {
         {editStudent && (
           <EditStudentModal student={editStudent} onClose={() => setEditStudent(null)} />
         )}
+        {showAdd && <AddStudentModal onClose={() => setShowAdd(false)} />}
       </main>
+    </div>
+  );
+}
+
+/* ---------- مودال افزودن دانشجو / شماره‌ی جدید ---------- */
+function AddStudentModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [fullName, setFullName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [fld, setFld] = useState("");
+  const [grade, setGrade] = useState("");
+  const [source, setSource] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setLoading(true);
+    try {
+      if (DEMO) {
+        alert("در حالت نمایشی، افزودن ذخیره نمی‌شود.");
+        onClose();
+        return;
+      }
+      await api.post("/students", {
+        full_name: fullName || null,
+        mobile,
+        field: fld || null,
+        grade: grade || null,
+        lead_source: source || null,
+      });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["today-leads"] });
+      toast("شماره ثبت شد ✓");
+      onClose();
+    } catch {
+      setError("ثبت ناموفق بود (شاید شماره تکراری است).");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <UserPlus size={18} className="text-blue-600" /> افزودن دانشجو / شماره
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <form onSubmit={submit} className="space-y-3">
+          <input
+            placeholder="نام و نام خانوادگی (اختیاری)"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          />
+          <input
+            type="tel"
+            placeholder="موبایل (مثلاً ۰۹۱۲۳۴۵۶۷۸۹)"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            dir="ltr"
+            required
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <select value={fld} onChange={(e) => setFld(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">رشته…</option>
+              {FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            <select value={grade} onChange={(e) => setGrade(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">پایه…</option>
+              {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <select value={source} onChange={(e) => setSource(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+            <option value="">منبع…</option>
+            {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          {error && <div className="text-sm text-rose-600">{error}</div>}
+          <button
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
+          >
+            {loading && <Loader2 size={16} className="animate-spin" />}
+            ثبت
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

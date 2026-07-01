@@ -1,16 +1,20 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { isDemoMode } from "@/lib/auth";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { CallButton } from "@/components/CallButton";
 import { Pagination } from "@/components/Pagination";
 import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
+import { useToast } from "@/components/Toast";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum, faDateTime } from "@/lib/utils";
-import { Search, CalendarClock, CalendarCheck, ListTodo } from "lucide-react";
+import { Search, CalendarClock, CalendarCheck, ListTodo, Check, Trash2, Loader2 } from "lucide-react";
+
+const DEMO = isDemoMode();
 
 /**
  * شکل خامِ پیگیری از سرور؛ دو حالت پشتیبانی می‌شود:
@@ -192,8 +196,8 @@ export default function FollowupsPage() {
                     </span>
                   </td>
                   <td className="p-3.5 text-slate-500">{f.note || "—"}</td>
-                  <td className="p-3.5 text-center">
-                    {f.mobile ? <CallButton mobile={f.mobile} size="sm" /> : <span className="text-slate-300">—</span>}
+                  <td className="p-3.5">
+                    <FollowupActions id={f.id} mobile={f.mobile} />
                   </td>
                 </tr>
               ))}
@@ -219,6 +223,58 @@ export default function FollowupsPage() {
           />
         )}
       </main>
+    </div>
+  );
+}
+
+/* ---------- اقدام‌های پیگیری: تماس · انجام‌شد · حذف ---------- */
+function FollowupActions({ id, mobile }: { id: string; mobile: string }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function done() {
+    if (DEMO) { alert("در حالت نمایشی ذخیره نمی‌شود."); return; }
+    setBusy(true);
+    try {
+      await api.post(`/followups/${id}/done`);
+      qc.invalidateQueries({ queryKey: ["followups"] });
+      qc.invalidateQueries({ queryKey: ["tasks-today"] });
+      toast("پیگیری انجام شد ✓");
+    } catch { alert("ثبت ناموفق بود."); setBusy(false); }
+  }
+
+  async function remove() {
+    if (!confirm("این پیگیری حذف شود؟")) return;
+    if (DEMO) { alert("در حالت نمایشی حذف نمی‌شود."); return; }
+    setBusy(true);
+    try {
+      await api.delete(`/followups/${id}`);
+      qc.invalidateQueries({ queryKey: ["followups"] });
+      qc.invalidateQueries({ queryKey: ["tasks-today"] });
+      toast("پیگیری حذف شد ✓");
+    } catch { alert("حذف ناموفق بود."); setBusy(false); }
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-2">
+      {mobile ? <CallButton mobile={mobile} size="sm" /> : null}
+      <button
+        onClick={done}
+        disabled={busy}
+        title="انجام شد"
+        className="inline-flex items-center justify-center rounded-lg bg-emerald-50 p-1.5 text-emerald-600 transition hover:bg-emerald-100 disabled:opacity-50"
+      >
+        <Check size={16} />
+      </button>
+      <button
+        onClick={remove}
+        disabled={busy}
+        title="حذف پیگیری"
+        className="inline-flex items-center justify-center rounded-lg bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+      >
+        {busy ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+      </button>
     </div>
   );
 }

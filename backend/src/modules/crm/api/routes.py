@@ -18,6 +18,7 @@ from src.modules.crm.api.schemas import (
     NoteCreate,
     Paginated,
     SaleCreate,
+    SaleUpdate,
     StageChange,
     StageCreate,
     StudentCreate,
@@ -217,6 +218,26 @@ async def create_followup(
     return await StudentService(session).create_followup(body, owner_id=user.id)
 
 
+@router.post("/followups/{followup_id}/done")
+async def complete_followup(
+    followup_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("followups:write")),
+) -> dict:
+    """پیگیری را «انجام‌شده» علامت می‌زند (از لیستِ باز حذف می‌شود)."""
+    return await StudentService(session).set_followup_status(
+        followup_id, "done", actor_id=user.id)
+
+
+@router.delete("/followups/{followup_id}", status_code=200)
+async def delete_followup(
+    followup_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("followups:write")),
+) -> dict:
+    return await StudentService(session).delete_followup(followup_id, actor_id=user.id)
+
+
 # ---------- Sales (فیش فروش) ----------
 @router.get("/sales/meta")
 async def sales_meta(
@@ -250,6 +271,27 @@ async def create_sale(
 ) -> dict:
     """ثبت فیش فروش جدید (محصول + مدت برنامه + جزئیات واریز)."""
     return await SalesService(session).create_sale(body, agent_id=user.id)
+
+
+@router.patch("/sales/{sale_id}")
+async def update_sale(
+    sale_id: UUID,
+    body: SaleUpdate,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    """ویرایشِ فیشِ فروش (اصلاحِ مبلغ/محصول/اسنادِ واریز)."""
+    return await SalesService(session).update_sale(sale_id, body, actor_id=user.id)
+
+
+@router.delete("/sales/{sale_id}", status_code=200)
+async def delete_sale(
+    sale_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    """حذفِ فیشِ فروش."""
+    return await SalesService(session).delete_sale(sale_id, actor_id=user.id)
 
 
 @router.get("/sales/timeline")

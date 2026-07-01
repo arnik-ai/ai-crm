@@ -341,8 +341,9 @@ export default function CallsPage() {
                   )}
                   {c.status !== "missed" && (
                     <button
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-                      title="پخش فایل صوتی"
+                      disabled
+                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-400 opacity-60"
+                      title="پخشِ فایلِ صوتی پس از اتصالِ ورکانو فعال می‌شود"
                     >
                       <Play size={14} /> پخش
                     </button>
@@ -385,12 +386,6 @@ export default function CallsPage() {
                       <Sparkles size={14} /> خلاصه‌ی هوش مصنوعی
                     </span>
                     <ConfidenceBadge value={c.confidence} />
-                    <button
-                      className="mr-auto inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-white/70 px-2 py-1 text-xs font-medium text-violet-700 transition hover:bg-white"
-                      title="ویرایش اطلاعات استخراج‌شده"
-                    >
-                      <Pencil size={12} /> ویرایش
-                    </button>
                   </div>
                   <p className="text-sm leading-relaxed text-slate-700">{c.summary}</p>
                   {c.signals && c.signals.length > 0 && (

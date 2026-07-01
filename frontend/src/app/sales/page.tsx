@@ -13,7 +13,7 @@ import { useToast } from "@/components/Toast";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDigits, faDate } from "@/lib/utils";
-import { Search, ShoppingCart, Receipt, CreditCard, CalendarRange, Plus, X, Loader2 } from "lucide-react";
+import { Search, ShoppingCart, Receipt, CreditCard, CalendarRange, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react";
 
 const DEMO = isDemoMode();
 const PROGRAM = "برنامه";
@@ -113,6 +113,7 @@ export default function SalesPage() {
 
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [editSale, setEditSale] = useState<Sale | null>(null);
   const [tab, setTab] = useState<"sales" | "installments">("sales");
 
   const items: Sale[] = useMemo(() => {
@@ -240,6 +241,7 @@ export default function SalesPage() {
                 <th className="p-3.5 text-right font-medium">کارت واریزکننده</th>
                 <th className="p-3.5 text-right font-medium">بانک مقصد</th>
                 <th className="p-3.5 text-right font-medium">جزئیات واریز</th>
+                <th className="p-3.5 text-center font-medium">اقدام</th>
               </tr>
             </thead>
             <tbody>
@@ -277,6 +279,18 @@ export default function SalesPage() {
                   <td className="p-3.5 align-top text-slate-500" dir="ltr">{s.payer_card ? faDigits(s.payer_card) : "—"}</td>
                   <td className="p-3.5 align-top text-slate-600">{s.dest_account ?? "—"}</td>
                   <td className="p-3.5 align-top text-slate-500" dir="ltr">{s.payment_ref ? faDigits(s.payment_ref) : "—"}</td>
+                  <td className="p-3.5 align-top">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setEditSale(s)}
+                        title="ویرایش فیش"
+                        className="inline-flex items-center justify-center rounded-lg bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <DeleteSaleButton sale={s} />
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -307,29 +321,75 @@ export default function SalesPage() {
           onAdded={() => { setShowAdd(false); qc.invalidateQueries({ queryKey: ["sales"] }); }}
         />
       )}
+      {editSale && (
+        <AddSaleModal
+          sale={editSale}
+          onClose={() => setEditSale(null)}
+          onAdded={() => { setEditSale(null); qc.invalidateQueries({ queryKey: ["sales"] }); }}
+        />
+      )}
     </div>
   );
 }
 
-/* ---------- مودال ثبت فیش (چندمحصولی + اسناد واریز) ---------- */
-function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+/* ---------- دکمه‌ی حذفِ فیش (با تأیید) ---------- */
+function DeleteSaleButton({ sale }: { sale: Sale }) {
+  const qc = useQueryClient();
   const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function onDelete() {
+    if (!confirm(`فیشِ «${sale.student_name || sale.mobile || "بدون نام"}» به مبلغِ ${amountFa(sale.amount)} حذف شود؟ این کار قابل بازگشت نیست.`)) return;
+    if (DEMO) { alert("در حالت نمایشی حذف نمی‌شود."); return; }
+    setBusy(true);
+    try {
+      await api.delete(`/sales/${sale.id}`);
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      toast("فیش حذف شد ✓");
+    } catch {
+      alert("حذف ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={onDelete}
+      disabled={busy}
+      title="حذف فیش"
+      className="inline-flex items-center justify-center rounded-lg bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+    >
+      {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+    </button>
+  );
+}
+
+/* ---------- مودال ثبت فیش (چندمحصولی + اسناد واریز) ---------- */
+function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => void; onAdded: () => void }) {
+  const toast = useToast();
+  const isEdit = !!sale;
   const { data: meta } = useQuery<SalesMeta>({
     queryKey: ["sales-meta"],
     queryFn: async () => (await api.get("/sales/meta")).data,
   });
 
-  const [studentName, setStudentName] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [saleDate, setSaleDate] = useState(""); // تاریخ فروش (ISO میلادی از پیکر شمسی)
-  // محصولاتِ انتخاب‌شده با تیک: کلید=نام محصول، مقدار={مدت}؛ مبلغ روی کلِ فیش است
-  const [sel, setSel] = useState<Record<string, { months: number | "" }>>({});
-  const [payAmount, setPayAmount] = useState(""); // مبلغِ کلِ واریز (هزار تومان)
-  const [depDate, setDepDate] = useState(""); // ISO میلادی از پیکر شمسی
-  const [depTime, setDepTime] = useState(""); // HH:MM
-  const [payerCard, setPayerCard] = useState("");
-  const [destAccount, setDestAccount] = useState("");
-  const [paymentRef, setPaymentRef] = useState("");
+  const [studentName, setStudentName] = useState(sale?.student_name ?? "");
+  const [mobile, setMobile] = useState(sale?.mobile ?? "");
+  // تاریخ فروش (بخشِ تاریخِ ISO؛ پیکر شمسی نمایش می‌دهد)
+  const [saleDate, setSaleDate] = useState(sale?.date ? sale.date.slice(0, 10) : "");
+  // محصولاتِ انتخاب‌شده با تیک: کلید=نام محصول، مقدار={مدت}
+  const [sel, setSel] = useState<Record<string, { months: number | "" }>>(
+    sale?.items?.length
+      ? Object.fromEntries(sale.items.map((it) => [it.product, { months: it.program_months ?? "" }]))
+      : {}
+  );
+  const [payAmount, setPayAmount] = useState(sale ? String(Math.round((sale.amount || 0) / 1000)) : "");
+  const [depDate, setDepDate] = useState(sale?.deposited_at ? sale.deposited_at.slice(0, 10) : "");
+  const [depTime, setDepTime] = useState(sale?.deposited_at ? sale.deposited_at.slice(11, 16) : "");
+  const [payerCard, setPayerCard] = useState(sale?.payer_card ?? "");
+  const [destAccount, setDestAccount] = useState(sale?.dest_account ?? "");
+  const [paymentRef, setPaymentRef] = useState(sale?.payment_ref ?? "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   // نتیجه‌ی جست‌وجوی موبایل (مشتریِ تکراری → پرکردنِ نام + پیام خرید قبلی)
@@ -368,14 +428,14 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     setLoading(true);
     try {
       if (DEMO) {
-        alert("در حالت نمایشی، ثبت فیش ذخیره نمی‌شود.");
+        alert(isEdit ? "در حالت نمایشی، ویرایش ذخیره نمی‌شود." : "در حالت نمایشی، ثبت فیش ذخیره نمی‌شود.");
         onClose();
         return;
       }
       const depositedAt = depDate
         ? new Date(`${depDate}T${depTime || "00:00"}`).toISOString()
         : null;
-      await api.post("/sales", {
+      const payload = {
         student_name: studentName,
         mobile,
         // ساعت ۱۲ ظهر تا با جابه‌جاییِ منطقه‌ی زمانی، روزِ فروش تغییر نکند
@@ -389,8 +449,14 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
         payer_card: payerCard || null,
         dest_account: destAccount || null,
         payment_ref: paymentRef || null,
-      });
-      toast("فیش فروش ثبت شد ✓");
+      };
+      if (isEdit) {
+        await api.patch(`/sales/${sale!.id}`, payload);
+        toast("فیش ویرایش شد ✓");
+      } else {
+        await api.post("/sales", payload);
+        toast("فیش فروش ثبت شد ✓");
+      }
       onAdded();
     } catch {
       setError("ثبت فیش ناموفق بود. ورودی‌ها را بررسی کنید.");
@@ -403,7 +469,7 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-bold text-slate-800">ثبت فیش فروش</h2>
+          <h2 className="font-bold text-slate-800">{isEdit ? "ویرایش فیش فروش" : "ثبت فیش فروش"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
@@ -549,7 +615,7 @@ function AddSaleModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
-              ثبت فیش
+              {isEdit ? "ذخیره تغییرات" : "ثبت فیش"}
             </button>
           </div>
         </form>

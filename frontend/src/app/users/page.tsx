@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { isDemoMode } from "@/lib/auth";
-import { UserCog, UserPlus, ShieldCheck, Loader2, X, Power } from "lucide-react";
+import { UserCog, UserPlus, ShieldCheck, Loader2, X, Power, Pencil } from "lucide-react";
 
 type User = {
   id: string;
@@ -46,6 +46,7 @@ export default function UsersPage() {
     queryFn: async () => (await api.get("/users")).data,
   });
   const [showAdd, setShowAdd] = useState(false);
+  const [editUser, setEditUser] = useState<User | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const users: User[] = data ?? [];
@@ -120,15 +121,24 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="p-3.5 text-center">
-                    <button
-                      onClick={() => toggleActive(u)}
-                      disabled={busy === u.id}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-                      title={u.is_active ? "غیرفعال‌کردن" : "فعال‌کردن"}
-                    >
-                      {busy === u.id ? <Loader2 size={13} className="animate-spin" /> : <Power size={13} />}
-                      {u.is_active ? "غیرفعال" : "فعال"}
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setEditUser(u)}
+                        title="ویرایش (نام/موبایل/نقش)"
+                        className="inline-flex items-center justify-center rounded-lg bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => toggleActive(u)}
+                        disabled={busy === u.id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                        title={u.is_active ? "غیرفعال‌کردن" : "فعال‌کردن"}
+                      >
+                        {busy === u.id ? <Loader2 size={13} className="animate-spin" /> : <Power size={13} />}
+                        {u.is_active ? "غیرفعال" : "فعال"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -149,6 +159,91 @@ export default function UsersPage() {
           onAdded={() => { setShowAdd(false); qc.invalidateQueries({ queryKey: ["users"] }); }}
         />
       )}
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          onClose={() => setEditUser(null)}
+          onSaved={() => { setEditUser(null); qc.invalidateQueries({ queryKey: ["users"] }); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- مودال ویرایش کاربر (نام/موبایل/نقش) ---------- */
+function EditUserModal({
+  user, onClose, onSaved,
+}: { user: User; onClose: () => void; onSaved: () => void }) {
+  const [fullName, setFullName] = useState(user.full_name);
+  const [mobile, setMobile] = useState(user.mobile ?? "");
+  const [role, setRole] = useState(user.roles[0] ?? "sales_agent");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setLoading(true);
+    try {
+      if (DEMO) {
+        alert("در حالت نمایشی، تغییرات ذخیره نمی‌شود.");
+        onClose();
+        return;
+      }
+      await api.patch(`/users/${user.id}`, { full_name: fullName, mobile, role });
+      onSaved();
+    } catch {
+      setError("ذخیره ناموفق بود. شاید موبایل تکراری است.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <Pencil size={18} className="text-blue-600" /> ویرایش کاربر
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <form onSubmit={submit} className="space-y-3">
+          <input
+            placeholder="نام و نام خانوادگی"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            required
+          />
+          <input
+            type="tel"
+            placeholder="موبایل (مثلاً ۰۹۱۲۳۴۵۶۷۸۹)"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            dir="ltr"
+            required
+          />
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="sales_agent">کارشناس فروش</option>
+            <option value="sales_manager">مدیر فروش</option>
+            <option value="viewer">فقط مشاهده</option>
+            <option value="admin">مدیر سیستم</option>
+          </select>
+          {error && <div className="text-sm text-rose-600">{error}</div>}
+          <button
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
+          >
+            {loading && <Loader2 size={16} className="animate-spin" />}
+            ذخیره تغییرات
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
