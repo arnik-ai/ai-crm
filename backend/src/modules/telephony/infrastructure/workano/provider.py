@@ -27,6 +27,10 @@ class WorkanoProvider(TelephonyProvider):
         self._api_key = api_key
 
     def verify_signature(self, raw_body: bytes, headers: dict) -> bool:
+        # اگر کلیدِ امنیتی تنظیم نشده باشد، قفل باز است و همهٔ درخواست‌ها پذیرفته
+        # می‌شوند. برای فعال‌کردنِ امنیت کافیست WORKANO_WEBHOOK_SECRET را در .env بگذاری.
+        if not self._secret:
+            return True
         sig = headers.get("x-workano-signature", "")
         if sig.startswith("sha256="):
             sig = sig[len("sha256="):]

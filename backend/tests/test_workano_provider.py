@@ -23,6 +23,12 @@ def test_verify_signature_invalid():
     assert not _provider().verify_signature(body, {"x-workano-signature": "sha256=bad"})
 
 
+def test_verify_signature_open_when_no_secret():
+    # کلیدِ خالی → قفل باز: همهٔ درخواست‌ها پذیرفته می‌شوند
+    provider = WorkanoProvider(webhook_secret="", api_base="https://x", api_key="k")
+    assert provider.verify_signature(b'{"any":"thing"}', {})
+
+
 def test_parse_event_maps_fields():
     payload = {
         "event": "recording_ready",
