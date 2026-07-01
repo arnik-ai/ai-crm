@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { isDemoMode } from "@/lib/auth";
-import { MessageSquare, Mail, Loader2, Phone, Lock, KeyRound } from "lucide-react";
+import { MessageSquare, Mail, Loader2, Phone, Lock, KeyRound, Eye, EyeOff } from "lucide-react";
 
 type Tab = "otp" | "password";
 type OtpStep = "phone" | "code";
@@ -100,10 +100,10 @@ export default function LoginPage() {
   );
 }
 
-/* ---------- ورودیِ زیبا با آیکن ---------- */
+/* ---------- ورودیِ زیبا با آیکن (+ دکمه‌ی کناریِ اختیاری) ---------- */
 function Field({
-  icon, ...props
-}: { icon: React.ReactNode } & React.InputHTMLAttributes<HTMLInputElement>) {
+  icon, trailing, ...props
+}: { icon: React.ReactNode; trailing?: React.ReactNode } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="group relative">
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition group-focus-within:text-blue-500">
@@ -111,8 +111,13 @@ function Field({
       </span>
       <input
         {...props}
-        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 pr-10 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+        className={`w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 pr-10 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100 ${
+          trailing ? "pl-11" : ""
+        }`}
       />
+      {trailing && (
+        <div className="absolute left-1.5 top-1/2 -translate-y-1/2">{trailing}</div>
+      )}
     </div>
   );
 }
@@ -231,6 +236,7 @@ function OtpForm({ onSuccess }: { onSuccess: () => void }) {
 function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -266,12 +272,22 @@ function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
       />
       <Field
         icon={<Lock size={16} />}
-        type="password"
+        type={showPass ? "text" : "password"}
         placeholder="رمز عبور"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         dir="ltr"
         required
+        trailing={
+          <button
+            type="button"
+            onClick={() => setShowPass((v) => !v)}
+            aria-label={showPass ? "پنهان‌کردن رمز" : "نمایش رمز"}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+          >
+            {showPass ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
+        }
       />
       {error && <div className="text-sm text-rose-600">{error}</div>}
       <SubmitButton loading={loading}>ورود</SubmitButton>
