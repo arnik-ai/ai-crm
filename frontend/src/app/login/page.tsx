@@ -53,27 +53,27 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* تب‌ها */}
-          <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/80 p-1">
+          {/* تب‌ها — فعال با پُرشدنِ رنگِ برند کاملاً متمایز می‌شود */}
+          <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
             <button
               onClick={() => setTab("password")}
-              className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium transition ${
+              className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition ${
                 tab === "password"
-                  ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-gradient-to-l from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30"
+                  : "bg-white text-slate-500 ring-1 ring-slate-200 hover:text-slate-700"
               }`}
             >
-              <Mail size={15} /> ایمیل و رمز
+              <Mail size={16} /> ایمیل و رمز
             </button>
             <button
               onClick={() => setTab("otp")}
-              className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium transition ${
+              className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition ${
                 tab === "otp"
-                  ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-gradient-to-l from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30"
+                  : "bg-white text-slate-500 ring-1 ring-slate-200 hover:text-slate-700"
               }`}
             >
-              <MessageSquare size={15} /> ورود با پیامک
+              <MessageSquare size={16} /> ورود با پیامک
             </button>
           </div>
 
