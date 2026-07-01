@@ -12,7 +12,7 @@ import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 // (faDate برای نمایشِ تاریخِ ثبتِ شماره‌ی تکراری)
 import {
   ClipboardList, CalendarClock, PhoneMissed, PhoneOff, UserPlus, Loader2, Plus,
-  AlertTriangle, PhoneForwarded, Pencil, ClipboardCheck, X, Users,
+  AlertTriangle, PhoneForwarded, Pencil, ClipboardCheck, X, Users, Trash2,
 } from "lucide-react";
 
 const DEMO = isDemoMode();
@@ -501,7 +501,25 @@ function TodayLeads() {
 function LeadCard({
   lead, onResult, onEdit,
 }: { lead: Lead; onResult: () => void; onEdit: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [deleting, setDeleting] = useState(false);
   const hasInfo = lead.field || lead.grade || lead.goal || lead.gpa != null || lead.city || lead.lead_source;
+
+  async function onDelete() {
+    if (!confirm(`شماره‌ی «${lead.full_name || lead.mobile}» حذف شود؟ این کار قابل بازگشت نیست.`)) return;
+    if (DEMO) { alert("در حالت نمایشی حذف نمی‌شود."); return; }
+    setDeleting(true);
+    try {
+      await api.delete(`/students/${lead.id}`);
+      qc.invalidateQueries({ queryKey: ["today-leads"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      toast("شماره حذف شد ✓");
+    } catch {
+      alert("حذف ناموفق بود.");
+      setDeleting(false);
+    }
+  }
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/60 p-3.5 shadow-sm transition hover:shadow-md">
       {/* نام + شماره */}
@@ -552,6 +570,14 @@ function LeadCard({
           className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
         >
           <Pencil size={14} />
+        </button>
+        <button
+          onClick={onDelete}
+          disabled={deleting}
+          title="حذف شماره"
+          className="mr-auto inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+        >
+          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
         </button>
       </div>
     </div>
