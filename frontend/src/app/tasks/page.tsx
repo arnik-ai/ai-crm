@@ -177,22 +177,36 @@ function Section({
             <div
               key={t.id}
               onClick={clickable ? () => onItemClick!(t) : undefined}
-              className={`flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 ${
-                clickable ? "cursor-pointer transition hover:bg-blue-50" : ""
+              className={`flex items-center gap-3 rounded-2xl border bg-white p-3 shadow-sm transition ${
+                clickable
+                  ? "cursor-pointer border-slate-200 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md"
+                  : "border-slate-100"
               }`}
             >
+              {/* آواتارِ رنگی با حرف اول نام */}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-sm font-bold text-indigo-600 ring-1 ring-indigo-50">
+                {(t.student_name ?? "?").trim().charAt(0) || "?"}
+              </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-slate-700">
-                  {t.student_name || "ناشناس"}
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-sm font-semibold text-slate-800">
+                    {t.student_name || "ناشناس"}
+                  </span>
                   {clickable && (
-                    <span className="mr-1 text-[10px] font-normal text-emerald-600">← برای ثبت نتیجه بزن</span>
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
+                      ثبت نتیجه
+                    </span>
                   )}
                 </div>
                 <div className="text-xs text-slate-400" dir="ltr">{t.mobile || "—"}</div>
                 {showNote && t.note && (
-                  <div className="mt-0.5 truncate text-xs text-slate-500">{t.note}</div>
+                  <div className="mt-1 flex items-start gap-1 rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-500">
+                    <span>📝</span><span className="truncate">{t.note}</span>
+                  </div>
                 )}
-                <div className="text-[11px] text-slate-400">{faDateTime(t[timeField] ?? undefined)}</div>
+                <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-400">
+                  <CalendarClock size={11} /> {faDateTime(t[timeField] ?? undefined)}
+                </div>
               </div>
               {t.mobile && (
                 <div onClick={(e) => e.stopPropagation()}>

@@ -31,6 +31,25 @@ option {
   color: #1e293b;
 }
 
+/* بوردر و ظاهرِ پایه‌ی یکدستِ فرم‌ها.
+   ⚠️ این «پایه» است و سطحِ specificityِ پایینی دارد؛ پس هر کلاسِ صریحِ Tailwind
+   (border-*, rounded-*, focus:*) بر این اولویت دارد و چیزی از استایل‌های موجود
+   نمی‌شکند. فقط کنترل‌هایی که بوردر نداشتند، بوردرِ تمیز می‌گیرند. چک‌باکس/رادیو/
+   رنج/فایل استثنا هستند تا ظاهرشان خراب نشود. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+select,
+textarea {
+  border: 1px solid #cbd5e1; /* slate-300 */
+  border-radius: 0.75rem; /* rounded-xl */
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: #818cf8; /* indigo-400 */
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
 /* روی موبایل، فضای پایین برای نوار ناوبریِ پایین (BottomNav) باز شود */
 @media (max-width: 767px) {
   main {
