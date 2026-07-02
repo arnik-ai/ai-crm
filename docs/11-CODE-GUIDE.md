@@ -279,10 +279,16 @@ ORM جدول‌های loyalty: `LoyaltyAccount` (امتیاز/سطح/کد دعو
 موتورِ **قطعیِ خالص** (بدون DB، تست‌پذیر): `conditions_match` (AND روی شرط‌ها)، `compute_points`
 (fixed/ratio/tiered)، `evaluate_rule` (شرط نگرفت→None، وگرنه امتیاز). هیچ LLM/تصادفی‌ای نیست.
 
+### `application/rewards.py` (فاز۲)
+منطقِ خالصِ پاداش/معرفی (تست‌پذیر، بدون DB): `check_redeem` (کفایتِ امتیاز/سطح/موجودی)،
+`check_referral` (ضدِخودمعرفی/تکراری)، `gen_coupon` (کدِ کوپنِ خوانا).
+
 ### `application/loyalty_service.py`
 `get_or_create_account` (+کد دعوتِ یکتا)، `process_event` (اجرای قوانینِ فعالِ همان event_type،
-ثبتِ تراکنش با `idempotency_key` = dedup+rule → ضدِ دوباره‌شماری)، `_recompute` (موجودی/سطح از
-Ledger)، `account_profile`/`transactions`/`leaderboard`/`levels`.
+ثبتِ تراکنش با `idempotency_key` = dedup+rule → ضدِ دوباره‌شماری؛ + قلابِ پاداشِ خریدِ معرفی)،
+`_recompute` (موجودی/سطح از Ledger)، `account_profile`/`transactions`/`leaderboard`/`levels`.
+**فاز۲:** `rewards`/`redeem`/`redemptions` (مصرفِ امتیاز→کوپن)، `apply_referral` (معرف +۳۰۰ +
+کوپنِ ۵٪)، `_reward_referral_purchase` (معرف +۵۰۰ روی خریدِ معرفی‌شده، یک‌بار).
 
 ### `application/projection.py`
 اتصالِ **صفر-دست‌زدن به هسته**: با SQL خام جدول‌های `sales`/`calls` را از checkpoint می‌خواند و

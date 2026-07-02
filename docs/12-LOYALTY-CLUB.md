@@ -2,8 +2,9 @@
 
 > نسخه ۱.۱ | ماژولِ **کاملاً مستقل و حذف‌شدنی** | backend-first، بدونِ وابستگی به UI
 >
-> ✅ **فاز ۱ پیاده‌سازی شد** (جدول‌ها + حساب + Ledger + Rule Engine + رویدادهای پایه +
-> سطح‌بندی + projection + API). خاموشِ پیش‌فرض (`LOYALTY_ENABLED=false`). فاز ۲..۴ هنوز طراحی‌اند.
+> ✅ **فاز ۱ و ۲ پیاده‌سازی شد** — فاز ۱: حساب + Ledger + Rule Engine + رویدادهای پایه + سطح +
+> projection. فاز ۲: پاداش + مصرفِ امتیاز + معرفیِ دوستانِ کامل. خاموشِ پیش‌فرض
+> (`LOYALTY_ENABLED=false`). فاز ۳..۴ (تولد/ورود روزانه/UI + AI-LangGraph) هنوز مانده.
 
 ---
 
@@ -17,9 +18,19 @@ backend/src/modules/loyalty/
 ├── application/projection.py    # اسکنِ SQL-خامِ sales/calls → رویداد (صفر importِ هسته)
 └── api/routes.py                # /api/v1/loyalty (accounts/transactions/leaderboard/levels/scan/events)
 
-backend/migrations/versions/0010_loyalty.py  # ساختِ جدول‌های loyalty_* + seedِ سطوح/قوانین
-backend/tests/test_loyalty_engine.py         # ۶ تستِ قطعی‌بودنِ موتور
+├── application/rewards.py       # [فاز۲] منطقِ خالصِ پاداش/معرفی (check_redeem/check_referral/gen_coupon)
+backend/migrations/versions/0010_loyalty.py         # فاز۱: جدول‌ها + seedِ سطوح/قوانین
+backend/migrations/versions/0011_loyalty_phase2.py  # فاز۲: rewards/redemptions/referrals + seedِ پاداش‌ها
+backend/tests/test_loyalty_engine.py          # ۶ تستِ قطعی‌بودنِ موتور
+backend/tests/test_loyalty_rewards.py         # ۸ تستِ منطقِ پاداش/معرفی
 ```
+
+**فاز ۲ (پاداش/مصرف/معرفی):**
+- `loyalty_rewards` (کاتالوگ) + seed: free_session(۱۰۰۰)، discount_10(۱۵۰۰،۱۰٪)، private_class(۲۰۰۰،gold)، free_course(۳۰۰۰،gold).
+- `POST /rewards/{id}/redeem`: چکِ امتیاز/سطح/موجودی → تراکنشِ منفی + `loyalty_redemptions` + کوپن.
+- `POST /referrals/apply` {code, student_id}: معرف +۳۰۰، دوست کوپنِ ۵٪ خوش‌آمد، ضدِخودمعرفی/تکراری.
+- **پاداشِ خریدِ معرفی‌شده (+۵۰۰):** قلابِ `_reward_referral_purchase` داخلِ `process_event` روی
+  `purchase.created` (idempotent با `referral_purchase:{id}`؛ یک‌بار).
 **اتصال:** حالتِ **Projection** (پیش‌فرضِ فاز ۱) — `POST /loyalty/scan` (دستی/ادمین؛ بعداً
 Celery-beat) جدول‌های `sales`/`calls` را با SQL خام می‌خواند؛ **هیچ خطی به هسته اضافه نشده**.
 **سوییچ:** `LOYALTY_ENABLED=true` در `.env`. خاموش = هیچ routeی سوار نمی‌شود.

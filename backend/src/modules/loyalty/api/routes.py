@@ -6,6 +6,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.identity.api.dependencies import require_permission
@@ -73,3 +74,53 @@ async def inject_event(
 ) -> dict:
     """تزریقِ دستیِ یک رویداد (تست/بک‌فیل). body = {type, student_id, payload, dedup_key?}."""
     return await LoyaltyService(session).process_event(body)
+
+
+# ---------- فاز ۲: پاداش، مصرف، معرفی ----------
+class _RedeemReq(BaseModel):
+    student_id: UUID
+
+
+class _ReferralReq(BaseModel):
+    code: str
+    student_id: UUID
+
+
+@router.get("/rewards")
+async def list_rewards(
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """کاتالوگِ پاداش‌های فعال."""
+    return {"items": await LoyaltyService(session).rewards()}
+
+
+@router.post("/rewards/{reward_id}/redeem")
+async def redeem_reward(
+    reward_id: UUID,
+    body: _RedeemReq,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    """خرجِ امتیازِ دانش‌آموز برای یک پاداش (→ کوپن/رزرو)."""
+    return await LoyaltyService(session).redeem(body.student_id, reward_id)
+
+
+@router.get("/redemptions/{student_id}")
+async def list_redemptions(
+    student_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:read")),
+) -> dict:
+    """پاداش‌های دریافت‌شده/کوپن‌های دانش‌آموز."""
+    return {"items": await LoyaltyService(session).redemptions(student_id)}
+
+
+@router.post("/referrals/apply")
+async def apply_referral(
+    body: _ReferralReq,
+    session: AsyncSession = Depends(get_session),
+    user=Depends(require_permission("students:write")),
+) -> dict:
+    """اعمالِ کدِ معرفی برای دانش‌آموزِ جدید (معرف +۳۰۰، دوست کوپنِ ۵٪)."""
+    return await LoyaltyService(session).apply_referral(body.code, body.student_id)

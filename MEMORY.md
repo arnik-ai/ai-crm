@@ -389,8 +389,18 @@ docs/     → ۱۲ سند معماری فارسی
       جدول‌های `loyalty_*` را drop می‌کند. `main.py` با `if loyalty_enabled: try/except include`.
     - ⚠️ **حذفِ کامل:** پاک‌کردنِ پوشه + downgradeِ 0010 + برداشتنِ خطِ include → هسته دست‌نخورده
       (چون try/except حتی بدونِ برداشتنِ خط هم نمی‌شکند). چک‌لیست در `docs/12-LOYALTY-CLUB.md`.
-    - **تست:** ۶ تستِ موتور (`tests/test_loyalty_engine.py`) → **۳۵ تستِ بک‌اند سبز ✅**. اپ با
-      loyalty روشن/خاموش هر دو سالم import می‌شود. فاز ۲..۴ (پاداش/معرفی/AI-LangGraph) هنوز مانده.
+    - **تست:** ۶ تستِ موتور (`tests/test_loyalty_engine.py`). اپ با loyalty روشن/خاموش سالم.
+
+46. **باشگاه مشتریان — فاز ۲ (پاداش/مصرف/معرفی)** —
+    - جدول‌های `loyalty_rewards`/`loyalty_redemptions`/`loyalty_referrals` (migration `0011`
+      + seedِ ۴ پاداش) — بازهم بدونِ FK سختِ هسته؛ downgradeِ تمیز.
+    - `application/rewards.py`: منطقِ خالصِ `check_redeem`/`check_referral`/`gen_coupon` (تست‌پذیر).
+    - سرویس: `rewards`/`redeem` (چکِ امتیاز/سطح/موجودی → تراکنشِ منفی + کوپن)/`redemptions`،
+      `apply_referral` (معرف +۳۰۰، دوست کوپنِ ۵٪)، `_reward_referral_purchase` (معرف +۵۰۰ روی
+      خریدِ معرفی‌شده، قلاب در `process_event`، idempotent).
+    - ۴ endpointِ جدید (`/rewards`, `/rewards/{id}/redeem`, `/redemptions/{id}`, `/referrals/apply`).
+    - **۸ تستِ فاز۲** (`tests/test_loyalty_rewards.py`) → **۴۳ تستِ بک‌اند سبز ✅**. اپ با loyalty
+      روشن ۱۰ endpoint سوار می‌کند؛ خاموش هیچ. فاز ۳..۴ (تولد/ورود روزانه/UI + AI-LangGraph) مانده.
 
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.

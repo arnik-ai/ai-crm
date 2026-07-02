@@ -84,3 +84,41 @@ class LoyaltyCheckpoint(Base):
     __tablename__ = "loyalty_checkpoints"
     source: Mapped[str] = mapped_column(String(60), unique=True)
     last_ts: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+# ---------- فاز ۲: پاداش، مصرف، معرفی ----------
+
+class Reward(Base):
+    """کاتالوگِ پاداش‌ها (داده‌ای؛ افزودن بدونِ deploy)."""
+    __tablename__ = "loyalty_rewards"
+    key: Mapped[str | None] = mapped_column(String(60), nullable=True, unique=True)
+    title: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    cost_points: Mapped[int] = mapped_column(Integer)
+    type: Mapped[str] = mapped_column(String(40))          # free_session|discount|free_course|private_class|coupon
+    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)   # {percent:10} یا {course_id:...}
+    min_level: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    stock: Mapped[int | None] = mapped_column(Integer, nullable=True)    # null = نامحدود
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Redemption(Base):
+    """مصرفِ امتیاز (خریدِ پاداش) یا کوپنِ هدیه (مثلِ ۵٪ خوش‌آمدِ معرفی)."""
+    __tablename__ = "loyalty_redemptions"
+    account_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    reward_id: Mapped[UUID | None] = mapped_column(nullable=True)        # null = کوپنِ هدیه
+    points_spent: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="approved")  # pending|approved|fulfilled|expired|canceled
+    coupon_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+class Referral(Base):
+    """معرفیِ دوستان — معرف/معرفی‌شده + وضعیت + فلگ‌های ضدِ پاداشِ دوباره."""
+    __tablename__ = "loyalty_referrals"
+    referrer_account_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    referred_student_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    code_used: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")   # pending|registered|purchased
+    signup_rewarded: Mapped[bool] = mapped_column(Boolean, default=False)
+    purchase_rewarded: Mapped[bool] = mapped_column(Boolean, default=False)
