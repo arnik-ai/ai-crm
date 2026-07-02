@@ -20,6 +20,29 @@ export const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+/**
+ * متنِ خطای واقعیِ بک‌اند را از پاسخ بیرون می‌کشد (به‌جای پیامِ کلیِ گمراه‌کننده).
+ *
+ * - خطاهای دامنه‌ایِ ما و ولیدیتورهای سفارشی، `detail` رشته‌ایِ فارسی برمی‌گردانند.
+ * - خطاهای ولیدیشنِ پیش‌فرضِ FastAPI، `detail` آرایه‌ای `[{loc,msg,...}]` است →
+ *   اولین پیام + محل را نشان می‌دهیم.
+ * اگر چیزی پیدا نشد، `fallback` استفاده می‌شود.
+ */
+export function apiErrorMessage(e: unknown, fallback: string): string {
+  const err = e as { response?: { status?: number; data?: { detail?: unknown } } };
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail) && detail.length) {
+    const first = detail[0] as { msg?: string; loc?: (string | number)[] };
+    if (first?.msg) {
+      const field = Array.isArray(first.loc) ? first.loc.slice(1).join("·") : "";
+      return field ? `${first.msg} (${field})` : first.msg;
+    }
+  }
+  if (err?.response?.status === 429) return "تعداد درخواست‌ها زیاد شد؛ چند لحظه صبر کن.";
+  return fallback;
+}
+
 // در حالت دمویِ اجباری، درخواست‌های GET مستقیماً داده‌ی نمونه می‌گیرند.
 api.interceptors.request.use((config) => {
   if (DEMO_FORCED && (config.method ?? "get").toLowerCase() === "get") {

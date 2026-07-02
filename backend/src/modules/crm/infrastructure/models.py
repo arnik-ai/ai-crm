@@ -64,6 +64,10 @@ class Student(Base):
     sales_stage_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("sales_stages.id", ondelete="SET NULL"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(30), default="active", index=True)
+    # نتیجه‌ی آخرین تماس/اقدام (برچسبِ فارسی) + زمانِ آن — برای «سرنخ‌های امروز»
+    last_outcome: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    last_outcome_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True)
 

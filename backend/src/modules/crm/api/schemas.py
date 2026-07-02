@@ -49,6 +49,9 @@ class StudentUpdate(BaseModel):
     lead_source: LeadSource | None = None
     assigned_agent_id: UUID | None = None
     status: str | None = None
+    # نتیجه‌ی آخرین تماس/اقدام (برچسبِ فارسی: موفق/بی‌پاسخ/…). با ست‌شدن، زمانِ آن
+    # (last_outcome_at) در سرویس به‌صورتِ خودکار «اکنون» می‌شود.
+    last_outcome: str | None = None
 
 
 class StudentOut(BaseModel):
@@ -65,6 +68,8 @@ class StudentOut(BaseModel):
     status: str
     sales_stage_id: UUID | None
     assigned_agent_id: UUID | None = None
+    last_outcome: str | None = None
+    last_outcome_at: datetime | None = None
     created_at: datetime
 
 

@@ -226,6 +226,53 @@ docs/     → ۱۲ سند معماری فارسی
     - ⏳ زیرساختی (موقع استقرار، نه کد): Read Replica، PgBouncer، load test. tenant-scoping
       کامل هنوز انجام نشده (فقط اگر SaaS چندمؤسسه خواستی).
 
+34. **رفعِ لوپِ رفرشِ بی‌پایان روی سایتِ زنده (GitHub Pages)** — کاربر گزارش داد اپ
+    «هر ثانیه می‌پره/رفرش می‌شه». ریشه: `sw.js`ِ حالتِ پاک‌سازی روی `activate` هم
+    `self.registration.unregister()` می‌کرد و هم `client.navigate()` (ری‌لود)؛ از آن‌طرف
+    `ServiceWorkerRegister` در هر بارگذاری دوباره `register()` می‌کرد → چون SW قبلی
+    unregister شده بود، مرورگر آن را «تازه» نصب می‌کرد → activate → navigate → ری‌لود →
+    بی‌نهایت. دو تغییرِ کوچک:
+    - `frontend/public/sw.js`: خطِ `client.navigate()` (و `clients.claim()`) حذف شد؛ فقط
+      پاک‌کردنِ کش + unregister می‌ماند (بدونِ ری‌لود).
+    - `frontend/src/components/ServiceWorkerRegister.tsx`: دیگر `register` نمی‌کند؛ فقط یک‌بار
+      SWهای موجود را unregister و کش‌ها را پاک می‌کند (اپ فعلاً PWA نیست/حالت پاک‌سازی).
+    ⚠️ الگو: SWی که هم‌زمان unregister + navigate کند، اگر جایی دوباره register شود، لوپ می‌سازد.
+    ⚠️ **استقرار:** فرانت روی **GitHub Pages** است (workflow `deploy-pages.yml`، push به `master`
+    → build با `NEXT_PUBLIC_BASE_PATH=/ai-crm` و اتصال به بک‌اندِ VPS)؛ برای اثرکردنِ این رفع
+    باید به `master` **push** شود تا Pages دوباره build/deploy کند. تایپ‌چک فرانت پاس (exit 0).
+
+35. **فیلترِ تفکیکِ پایه در صفحه‌ی سرنخ‌ها** — کنارِ فیلترِ رشته (تجربی/ریاضی/انسانی)،
+    یک ردیفِ دومِ فیلتر بر اساس **پایه** اضافه شد (`GRADE_FILTERS`: همه/دهم/یازدهم/دوازدهم/
+    فارغ‌التحصیل/سایر). با هم ترکیب می‌شوند (مثلاً «تجربی + دهمی‌ها»). تغییرِ فقط-فرانت در
+    `app/students/page.tsx`: state جدید `grade`، شرطِ `s.grade === grade` در useMemoِ `items`،
+    و دو گروهِ دکمه با برچسبِ «رشته:»/«پایه:» (پایه با تُنِ سبز برای تمایز). داده‌ی `grade` از
+    قبل هم در `/students` و هم در دمو موجود بود. تایپ‌چک پاس (exit 0).
+
+36. **رفعِ سه باگِ گزارش‌شده‌ی کاربر (فیش/کارهای روز)** —
+    - 🐞 **ویرایشِ فیش همیشه شکست می‌خورد:** در `SalesService.update_sale`، `record_audit`
+      با `diff=data` صدا زده می‌شد که `data = body.model_dump(exclude_unset=True)` شاملِ
+      **شیءِ datetime** (`sold_at`/`deposited_at`) بود؛ ستونِ `audit_logs.diff` نوعِ JSONB
+      است و `json.dumps(datetime)` هنگامِ commit خطا می‌داد → ۵۰۰ → همیشه شکست (چون در
+      ویرایش، تاریخِ فروش همیشه پیش‌پُر است). رفع: `diff=body.model_dump(mode="json", …)`
+      تا تاریخ‌ها ISO شوند. ⚠️ الگو: **هر `diff` که به JSONB می‌رود باید JSON-امن باشد
+      (`mode="json"`)** — datetime/UUID خام ممنوع. (موردِ `user_service` datetime ندارد، سالم.)
+    - 🐞 **هشدارِ «تکراری» اشتباه برای شماره‌ی جدید (Race):** در `NewNumberBox` (کارهای روز)،
+      پاسخِ کهنه‌ی `/students/lookup` بعد از ثبتِ شماره می‌رسید و همان شماره‌ی تازه‌ساخته را
+      «تکراری» نشان می‌داد. رفع با `mobileRef` + نادیده‌گرفتنِ پاسخِ lookup اگر مقدارِ فیلد
+      عوض/پاک شده باشد. ⚠️ الگو: نتیجه‌ی درخواستِ async را قبلِ setState با مقدارِ فعلیِ ورودی بسنج.
+    - **نمایشِ خطای واقعیِ بک‌اند:** تابعِ `apiErrorMessage()` در `lib/api.ts` (استخراجِ `detail`
+      رشته‌ای/آرایه‌ایِ FastAPI + پیام ۴۲۹). جایگزینِ پیام‌های کلیِ گمراه‌کننده در فرمِ فیش و
+      مودالِ ثبتِ نتیجه‌ی «کارهای روز».
+    - **نمایشِ نتیجه‌ی تماس روی کارتِ «سرنخ‌های امروز» + علامتِ «اقدام‌شده»** (تصمیمِ کاربر: هر دو):
+      ستون‌های `last_outcome`(text)+`last_outcome_at`(timestamptz) به `students` (migration
+      `0009` idempotent + schema.sql + مدل + StudentOut/StudentUpdate). `StudentService.update`
+      با ست‌شدنِ `last_outcome`، `last_outcome_at` را «اکنون» می‌کند. فرانت: مودالِ ثبتِ نتیجه
+      علاوه بر یادداشت، `PATCH /students/{id}` با `last_outcome` می‌زند؛ `LeadCard` برچسبِ رنگیِ
+      نتیجه + «✓ اقدام‌شده» نشان می‌دهد و کارتِ اقدام‌شده سبز/کم‌رنگ می‌شود (`OUTCOME_TONE`).
+    - **شفاف‌سازیِ «دوبار تاریخ» در فرمِ فیش** (تصمیمِ کاربر: هر دو بماند): برچسب‌ها به
+      «۱) تاریخ فروش» و «۲) تاریخ و ساعت واریز» + توضیحِ زیرِ هرکدام (روزِ فروش vs زمانِ واریز).
+    تست‌های بک‌اند: ۲۹ سبز ✅ · تایپ‌چک فرانت پاس. ⚠️ برای اثر روی سایتِ زنده باید به `master` push شود.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.

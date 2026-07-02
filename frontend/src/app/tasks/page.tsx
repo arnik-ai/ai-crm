@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
 import { isDemoMode } from "@/lib/auth";
@@ -323,12 +323,24 @@ function NewNumberBox() {
   const [msg, setMsg] = useState("");
   // شماره‌ی تکراری: {نام، تاریخ ثبت}
   const [dup, setDup] = useState<{ student_name: string | null; created_at: string | null } | null>(null);
+  // آخرین مقدارِ موبایلِ داخلِ فیلد — برای نادیده‌گرفتنِ پاسخِ کهنه‌ی lookup.
+  // (⚠️ باگِ رفع‌شده: اگر بینِ ارسالِ lookup و رسیدنِ پاسخش، شماره ثبت/پاک شود،
+  //  پاسخِ کهنه شماره را «تکراری» نشان می‌داد — همان شماره‌ای که تازه ساخته شد.)
+  const mobileRef = useRef("");
+
+  function setMobileSynced(v: string) {
+    mobileRef.current = v;
+    setMobile(v);
+  }
 
   async function onMobileBlur() {
     setDup(null);
-    if (DEMO || mobile.trim().length < 8) return;
+    const typed = mobile.trim();
+    if (DEMO || typed.length < 8) return;
     try {
-      const res = (await api.get(`/students/lookup?mobile=${encodeURIComponent(mobile)}`)).data;
+      const res = (await api.get(`/students/lookup?mobile=${encodeURIComponent(typed)}`)).data;
+      // اگر در این فاصله شماره عوض/پاک شد (مثلاً ثبت انجام شد)، پاسخ را دور بریز.
+      if (mobileRef.current.trim() !== typed) return;
       if (res.exists) {
         setDup({ student_name: res.student_name, created_at: res.created_at });
         if (res.student_name && !fullName.trim()) setFullName(res.student_name);
@@ -347,12 +359,13 @@ function NewNumberBox() {
       await api.post("/students", {
         full_name: fullName || null, mobile, lead_source: source || null,
       });
-      setFullName(""); setMobile(""); setSource(""); setDup(null);
+      // اول شماره را پاک کن (mobileRef هم خالی می‌شود) تا پاسخِ کهنه‌ی lookup بی‌اثر شود.
+      setFullName(""); setMobileSynced(""); setSource(""); setDup(null);
       toast("شماره ثبت شد ✓");
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["today-leads"] });
-    } catch {
-      setMsg("ثبت ناموفق بود (شاید تکراری است).");
+    } catch (err) {
+      setMsg(apiErrorMessage(err, "ثبت ناموفق بود (شاید تکراری است)."));
     } finally {
       setLoading(false);
     }
@@ -385,7 +398,7 @@ function NewNumberBox() {
             type="tel"
             placeholder="موبایل"
             value={mobile}
-            onChange={(e) => { setMobile(e.target.value); setDup(null); }}
+            onChange={(e) => { setMobileSynced(e.target.value); setDup(null); }}
             onBlur={onMobileBlur}
             className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-400"
             dir="ltr"
@@ -439,6 +452,18 @@ type Lead = {
   status?: string;
   call_count?: number;
   created_at?: string;
+  last_outcome?: string | null;      // نتیجه‌ی آخرین اقدام (موفق/بی‌پاسخ/…)
+  last_outcome_at?: string | null;   // زمانِ ثبتِ نتیجه (برای علامتِ «اقدام‌شده»)
+};
+
+/** تُنِ رنگیِ برچسبِ نتیجه‌ی تماس (بر اساس برچسبِ فارسی). */
+const OUTCOME_TONE: Record<string, string> = {
+  "موفق": "bg-emerald-100 text-emerald-700",
+  "خرید": "bg-green-100 text-green-700",
+  "ناموفق": "bg-rose-100 text-rose-700",
+  "مشغول/مشترک": "bg-amber-100 text-amber-700",
+  "پاسخ نداد": "bg-slate-200 text-slate-600",
+  "پیگیری": "bg-blue-100 text-blue-700",
 };
 
 type SaleMeta = { products: string[]; program_months: number[] };
@@ -505,6 +530,8 @@ function LeadCard({
   const toast = useToast();
   const [deleting, setDeleting] = useState(false);
   const hasInfo = lead.field || lead.grade || lead.goal || lead.gpa != null || lead.city || lead.lead_source;
+  // «اقدام‌شده» = نتیجه‌ای برایش ثبت شده (کارت کم‌رنگ‌تر می‌شود تا از کارهای باقی‌مانده جدا شود)
+  const actioned = !!lead.last_outcome;
 
   async function onDelete() {
     if (!confirm(`شماره‌ی «${lead.full_name || lead.mobile}» حذف شود؟ این کار قابل بازگشت نیست.`)) return;
@@ -521,7 +548,11 @@ function LeadCard({
     }
   }
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/60 p-3.5 shadow-sm transition hover:shadow-md">
+    <div className={`flex flex-col gap-3 rounded-2xl border p-3.5 shadow-sm transition hover:shadow-md ${
+      actioned
+        ? "border-emerald-200 bg-emerald-50/40"
+        : "border-slate-100 bg-gradient-to-br from-white to-slate-50/60"
+    }`}>
       {/* نام + شماره */}
       <div className="flex items-center gap-2.5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 font-bold text-blue-600">
@@ -537,6 +568,18 @@ function LeadCard({
           </span>
         )}
       </div>
+
+      {/* نتیجه‌ی ثبت‌شده + علامتِ «اقدام‌شده» */}
+      {lead.last_outcome && (
+        <div className="flex items-center gap-1.5">
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+            OUTCOME_TONE[lead.last_outcome] ?? "bg-slate-100 text-slate-600"
+          }`}>
+            <ClipboardCheck size={12} /> نتیجه: {lead.last_outcome}
+          </span>
+          <span className="text-[11px] text-emerald-600">✓ اقدام‌شده</span>
+        </div>
+      )}
 
       {/* باکس‌های اطلاعات: پایه/رشته · هدف · معدل · شهر · منبع */}
       {hasInfo ? (
@@ -658,13 +701,19 @@ function LeadResultModal({ lead, onClose }: { lead: Lead; onClose: () => void })
       await api.post(`/students/${lead.id}/notes`, {
         body: note ? `${outcomeText} — ${note}` : outcomeText,
       });
+      // نتیجه‌ی ساختاریافته روی خودِ سرنخ (برای برچسبِ نتیجه + علامتِ «اقدام‌شده» روی کارت)
+      if (outcome) {
+        await api.patch(`/students/${lead.id}`, {
+          last_outcome: OUTCOME_LABEL[outcome] ?? outcome,
+        });
+      }
       qc.invalidateQueries({ queryKey: ["today-leads"] });
       qc.invalidateQueries({ queryKey: ["tasks-today"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["students"] });
       toast(isPurchase ? "خرید ثبت و فیش ساخته شد ✓" : "نتیجه‌ی تماس ثبت شد ✓");
       onClose();
-    } catch { setMsg("ثبت ناموفق بود."); setLoading(false); }
+    } catch (err) { setMsg(apiErrorMessage(err, "ثبت ناموفق بود.")); setLoading(false); }
   }
 
   return (

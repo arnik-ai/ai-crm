@@ -119,8 +119,13 @@ class StudentService:
     async def update(self, student_id: UUID, body: StudentUpdate,
                      actor_id: str) -> StudentOut:
         student = await self._get_or_404(student_id)
-        for field, value in body.model_dump(exclude_unset=True).items():
+        data = body.model_dump(exclude_unset=True)
+        for field, value in data.items():
             setattr(student, field, value)
+        # با ثبتِ نتیجه‌ی جدید، زمانِ آن هم «اکنون» ثبت می‌شود (برای علامتِ «اقدام‌شده»).
+        if data.get("last_outcome"):
+            from datetime import datetime, timezone
+            student.last_outcome_at = datetime.now(tz=timezone.utc)
         await self._s.commit()
         return StudentOut.model_validate(student)
 

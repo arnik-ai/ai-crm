@@ -88,6 +88,9 @@ CREATE TABLE students (
     assigned_agent_id  uuid REFERENCES users(id) ON DELETE SET NULL,
     sales_stage_id     uuid REFERENCES sales_stages(id) ON DELETE SET NULL,
     status             text NOT NULL DEFAULT 'active',
+    -- نتیجه‌ی آخرین تماس/اقدام (برچسبِ فارسی) + زمانِ آن — برای «سرنخ‌های امروز»
+    last_outcome       text,
+    last_outcome_at    timestamptz,
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz NOT NULL DEFAULT now(),
     deleted_at         timestamptz,

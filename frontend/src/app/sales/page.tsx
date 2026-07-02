@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { Pagination } from "@/components/Pagination";
@@ -458,8 +458,8 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
         toast("فیش فروش ثبت شد ✓");
       }
       onAdded();
-    } catch {
-      setError("ثبت فیش ناموفق بود. ورودی‌ها را بررسی کنید.");
+    } catch (err) {
+      setError(apiErrorMessage(err, "ثبت فیش ناموفق بود. ورودی‌ها را بررسی کنید."));
     } finally {
       setLoading(false);
     }
@@ -507,8 +507,9 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
           )}
           {/* تاریخ فروش (اختیاری — خالی = امروز) */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-slate-500">تاریخ فروش:</span>
+            <span className="text-xs font-medium text-slate-600">۱) تاریخ فروش:</span>
             <JalaliDatePicker value={saleDate} onChange={setSaleDate} placeholder="امروز" />
+            <span className="w-full text-[11px] text-slate-400 sm:w-auto">روزی که فروش قطعی شد (پیش‌فرض: امروز)</span>
           </div>
 
           {/* محصولات — هر چند محصول را تیک بزن (بدون قیمتِ جداگانه) */}
@@ -574,7 +575,7 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
             <div className="mb-2 text-sm font-medium text-slate-700">اسناد واریز</div>
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-500">تاریخ و ساعت واریز:</span>
+                <span className="text-xs font-medium text-slate-600">۲) تاریخ و ساعت واریز:</span>
                 <JalaliDatePicker value={depDate} onChange={setDepDate} placeholder="تاریخ (شمسی)" />
                 <input
                   type="time"
@@ -583,6 +584,7 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
                   className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
                   dir="ltr"
                 />
+                <span className="w-full text-[11px] text-slate-400">زمانی که پول به حساب واریز شد (می‌تواند با تاریخ فروش فرق کند)</span>
               </div>
               <input
                 placeholder="کارت واریزکننده"

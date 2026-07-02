@@ -132,6 +132,8 @@ function Avatar({ name }: { name: string | null }) {
 }
 
 const FILTERS = ["همه", "تجربی", "ریاضی", "انسانی"];
+// فیلترِ پایه (تفکیکِ دهمی/یازدهمی/… ) — «سایر» هم‌خوان با enum بک‌اند
+const GRADE_FILTERS = ["همه", "دهم", "یازدهم", "دوازدهم", "فارغ‌التحصیل", "سایر"];
 
 // ستون‌های خروجی اکسل دانشجویان
 const EXCEL_COLUMNS: ExcelColumn<Student>[] = [
@@ -157,6 +159,7 @@ export default function StudentsPage() {
 
   const [q, setQ] = useState("");
   const [field, setField] = useState("همه");
+  const [grade, setGrade] = useState("همه");
   // دانشجویی که مودال ارسال پیام برایش باز است
   const [msgStudent, setMsgStudent] = useState<Student | null>(null);
   // دانشجویی که مودال ویرایش/تکمیل برایش باز است
@@ -166,6 +169,7 @@ export default function StudentsPage() {
   const items: Student[] = useMemo(() => {
     let list: Student[] = data?.items ?? [];
     if (field !== "همه") list = list.filter((s) => (s.course ?? s.field) === field);
+    if (grade !== "همه") list = list.filter((s) => s.grade === grade);
     if (q.trim()) {
       const k = q.trim();
       list = list.filter(
@@ -174,7 +178,7 @@ export default function StudentsPage() {
     }
     // مرتب‌سازی: بالاترین امتیاز اول (مهم‌ها بالای لیست)
     return [...list].sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
-  }, [data, q, field]);
+  }, [data, q, field, grade]);
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -218,7 +222,9 @@ export default function StudentsPage() {
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-9 pl-3 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             />
           </div>
-          <div className="flex gap-1.5">
+          {/* تفکیک بر اساس رشته */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-slate-400">رشته:</span>
             {FILTERS.map((f) => (
               <button
                 key={f}
@@ -230,6 +236,23 @@ export default function StudentsPage() {
                 }`}
               >
                 {f}
+              </button>
+            ))}
+          </div>
+          {/* تفکیک بر اساس پایه (دهم/یازدهم/…) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-slate-400">پایه:</span>
+            {GRADE_FILTERS.map((g) => (
+              <button
+                key={g}
+                onClick={() => setGrade(g)}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                  grade === g
+                    ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200"
+                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {g}
               </button>
             ))}
           </div>

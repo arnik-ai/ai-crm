@@ -134,8 +134,12 @@ class SalesService:
                     sale_id=sale.id, product=it["product"],
                     program_months=it.get("program_months"), amount=0,
                 ))
+        # ⚠️ diff باید JSON-امن باشد: data شاملِ شیءِ datetime (sold_at/deposited_at)
+        # است و مستقیماً در ستونِ JSONB سریالایز نمی‌شود (خطای commit). با mode="json"
+        # تاریخ‌ها به رشته‌ی ISO تبدیل می‌شوند. (این باگ باعثِ شکستِ همیشگیِ ویرایشِ فیش بود.)
         await record_audit(self._s, actor_id=actor_id, action="update",
-                           entity="sale", entity_id=str(sale.id), diff=data)
+                           entity="sale", entity_id=str(sale.id),
+                           diff=body.model_dump(mode="json", exclude_unset=True))
         await self._s.commit()
         return self._to_dict(sale)
 
