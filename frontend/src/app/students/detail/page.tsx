@@ -1,0 +1,290 @@
+"use client";
+import { Suspense, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { isDemoMode, isManager, getSession } from "@/lib/auth";
+import { Sidebar } from "@/components/Sidebar";
+import { BackButton } from "@/components/BackButton";
+import { CallButton } from "@/components/CallButton";
+import { ContactLinks } from "@/components/ContactLinks";
+import { MessageModal } from "@/components/MessageModal";
+import { faNum, faDate } from "@/lib/utils";
+import { useToast } from "@/components/Toast";
+import { User, Phone, MessageSquare, Pencil, Trash2, Loader2, X, GraduationCap } from "lucide-react";
+
+const DEMO = isDemoMode();
+const FIELDS = ["تجربی", "ریاضی", "انسانی", "سایر"];
+const GRADES = ["دهم", "یازدهم", "دوازدهم", "فارغ‌التحصیل", "سایر"];
+const SOURCES = ["سایت", "اینستاگرام", "تلگرام", "روبیکا", "بله", "پیامک", "سایر"];
+
+type Student = {
+  id: string;
+  full_name: string | null;
+  mobile: string;
+  status: string;
+  city?: string | null;
+  field?: string | null;
+  grade?: string | null;
+  goal?: string | null;
+  gpa?: number | null;
+  lead_source?: string | null;
+  assigned_agent_id?: string | null;
+  last_outcome?: string | null;
+  created_at?: string;
+};
+
+/** یک سطرِ اطلاعات (برچسب + مقدار) — اگر مقدار نبود، «—». */
+function Row({ label, value }: { label: string; value?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 last:border-0">
+      <span className="text-sm text-slate-500">{label}</span>
+      <span className="text-sm font-medium text-slate-800">{value ?? <span className="text-slate-300">—</span>}</span>
+    </div>
+  );
+}
+
+function StudentDetail() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const id = params.get("id") ?? "";
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [showMsg, setShowMsg] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const { data: s, isLoading, isError } = useQuery<Student>({
+    queryKey: ["student", id],
+    queryFn: async () => (await api.get(`/students/${id}`)).data,
+    enabled: !!id && !DEMO,
+  });
+
+  async function onDelete() {
+    if (!s) return;
+    if (!confirm(`«${s.full_name || s.mobile}» حذف شود؟ این کار قابل بازگشت نیست.`)) return;
+    if (DEMO) { alert("در حالت نمایشی حذف نمی‌شود."); return; }
+    setDeleting(true);
+    try {
+      await api.delete(`/students/${s.id}`);
+      qc.invalidateQueries({ queryKey: ["students"] });
+      toast("حذف شد ✓");
+      router.push("/students");
+    } catch {
+      alert("حذف ناموفق بود.");
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <Sidebar />
+      <main className="flex-1 p-4 md:p-8">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-200">
+              <User size={22} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-extrabold text-white">جزئیات دانشجو</h1>
+              <p className="mt-0.5 text-sm text-slate-300">اطلاعات کامل و اقدام‌ها</p>
+            </div>
+          </div>
+          <BackButton dark />
+        </div>
+
+        {DEMO ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">
+            در حالت نمایشی، جزئیاتِ زنده در دسترس نیست.
+          </div>
+        ) : isLoading ? (
+          <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-12 text-slate-400 shadow-sm">
+            <Loader2 className="animate-spin" size={18} /> در حال بارگذاری…
+          </div>
+        ) : isError || !s ? (
+          <div className="rounded-2xl border border-rose-100 bg-white p-8 text-center text-slate-500 shadow-sm">
+            دانشجو یافت نشد.
+          </div>
+        ) : (
+          <div className="mx-auto max-w-2xl space-y-4">
+            {/* کارت نام + اقدام‌ها */}
+            <div className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-blue-600">
+                  {(s.full_name ?? "?").charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg font-bold text-slate-800">{s.full_name || "بدون نام"}</div>
+                  <div className="text-sm text-slate-400" dir="ltr">{s.mobile}</div>
+                </div>
+                {s.last_outcome && (
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                    نتیجه: {s.last_outcome}
+                  </span>
+                )}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <CallButton mobile={s.mobile} size="sm" />
+                <ContactLinks mobile={s.mobile} />
+                <button
+                  onClick={() => setShowMsg(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-700 transition hover:bg-violet-100"
+                >
+                  <MessageSquare size={15} /> پیام
+                </button>
+                <button
+                  onClick={() => setShowEdit(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
+                >
+                  <Pencil size={15} /> ویرایش
+                </button>
+                <button
+                  onClick={onDelete}
+                  disabled={deleting}
+                  className="mr-auto inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
+                >
+                  {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} حذف
+                </button>
+              </div>
+            </div>
+
+            {/* کارت اطلاعات */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <Row label="پایه" value={s.grade} />
+              <Row label="رشته" value={s.field} />
+              <Row label="هدف" value={s.goal} />
+              <Row label="معدل" value={s.gpa != null ? faNum(s.gpa) : undefined} />
+              <Row label="شهر" value={s.city} />
+              <Row label="منبع تماس" value={s.lead_source} />
+              <Row label="وضعیت" value={s.status === "active" ? "فعال" : s.status} />
+              <Row label="تاریخ ثبت" value={s.created_at ? faDate(s.created_at) : undefined} />
+            </div>
+          </div>
+        )}
+
+        {s && showMsg && (
+          <MessageModal
+            student={{ id: s.id, full_name: s.full_name, mobile: s.mobile }}
+            onClose={() => setShowMsg(false)}
+          />
+        )}
+        {s && showEdit && <EditModal student={s} onClose={() => setShowEdit(false)} />}
+      </main>
+    </div>
+  );
+}
+
+/* ---------- مودال ویرایش/تکمیل ---------- */
+function EditModal({ student, onClose }: { student: Student; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [fullName, setFullName] = useState(student.full_name ?? "");
+  const [city, setCity] = useState(student.city ?? "");
+  const [fld, setFld] = useState(student.field ?? "");
+  const [grade, setGrade] = useState(student.grade ?? "");
+  const [goal, setGoal] = useState(student.goal ?? "");
+  const [gpa, setGpa] = useState(student.gpa != null ? String(student.gpa) : "");
+  const [source, setSource] = useState(student.lead_source ?? "");
+  const [advisor, setAdvisor] = useState(student.assigned_agent_id ?? "");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const canAssign = isManager(getSession());
+  const { data: advisorsData } = useQuery<{ items: { id: string; full_name: string }[] }>({
+    queryKey: ["advisors"],
+    queryFn: async () => (await api.get("/students/advisors")).data,
+    enabled: canAssign && !DEMO,
+  });
+  const advisors = advisorsData?.items ?? [];
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(""); setLoading(true);
+    try {
+      if (DEMO) { setMsg("در حالت نمایشی ذخیره نمی‌شود."); setLoading(false); return; }
+      await api.patch(`/students/${student.id}`, {
+        full_name: fullName || null,
+        city: city || null,
+        field: fld || null,
+        grade: grade || null,
+        goal: goal || null,
+        gpa: gpa ? Number(gpa) : null,
+        lead_source: source || null,
+        ...(canAssign ? { assigned_agent_id: advisor || null } : {}),
+      });
+      qc.invalidateQueries({ queryKey: ["student", student.id] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      toast("اطلاعات ذخیره شد ✓");
+      onClose();
+    } catch { setMsg("ذخیره ناموفق بود."); setLoading(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-bold text-slate-800">
+            <Pencil size={18} className="text-blue-600" /> ویرایش / تکمیل اطلاعات
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+        </div>
+        <p className="mb-4 text-sm text-slate-500" dir="ltr">{student.mobile}</p>
+        <form onSubmit={submit} className="space-y-3">
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="نام و نام خانوادگی"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <select value={fld} onChange={(e) => setFld(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">رشته…</option>
+              {FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            <select value={grade} onChange={(e) => setGrade(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">پایه…</option>
+              {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="هدف (مثلاً پزشکی دانشگاه تهران)"
+            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <input value={gpa} onChange={(e) => setGpa(e.target.value)} type="number" placeholder="معدل" min={0} max={20} step="0.01"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" dir="ltr" />
+            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="شهر"
+              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+          </div>
+          <select value={source} onChange={(e) => setSource(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+            <option value="">منبع تماس…</option>
+            {SOURCES.map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+          {canAssign && (
+            <select value={advisor} onChange={(e) => setAdvisor(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400">
+              <option value="">مشاورِ مسئول… (بدون تخصیص)</option>
+              {advisors.map((a) => <option key={a.id} value={a.id}>{a.full_name}</option>)}
+            </select>
+          )}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
+            <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">انصراف</button>
+            <button disabled={loading} className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60">
+              {loading && <Loader2 size={15} className="animate-spin" />} ذخیره
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function StudentDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center text-slate-300">
+        <GraduationCap className="mr-2 animate-pulse" size={20} /> در حال بارگذاری…
+      </div>
+    }>
+      <StudentDetail />
+    </Suspense>
+  );
+}
