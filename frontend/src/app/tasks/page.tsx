@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiErrorMessage } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
-import { ContactLinks } from "@/components/ContactLinks";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDate } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
@@ -15,7 +14,15 @@ import { MessageModal } from "@/components/MessageModal";
 import {
   ClipboardList, CalendarClock, PhoneMissed, PhoneOff, UserPlus, Loader2, Plus,
   AlertTriangle, PhoneForwarded, Pencil, ClipboardCheck, X, Users, Trash2, MessageSquare,
+  Phone, MoreHorizontal, MessageCircle, Send, ChevronDown,
 } from "lucide-react";
+
+/** شماره به ارقام بین‌المللی بدون + (۰ ابتدایی → ۹۸) — برای لینکِ واتساپ/تلگرام. */
+function toIntl(mobile: string): string {
+  let d = mobile.replace(/\D/g, "");
+  if (d.startsWith("0")) d = "98" + d.slice(1);
+  return d;
+}
 
 const DEMO = isDemoMode();
 
@@ -270,44 +277,62 @@ function NextCallNag({
 
 /* ---------- یادآور تمدید برنامه ---------- */
 function RenewalReminders({ items }: { items: RenewalItem[] }) {
+  // جمع‌شونده: پیش‌فرض بسته (فقط تیتر + عدد).
+  const [open, setOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   if (items.length === 0) return null;
+  const shown = showAll ? items : items.slice(0, 3);
   return (
     <div className="mt-4 rounded-2xl border border-amber-200 bg-gradient-to-l from-amber-50 to-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
-        <AlertTriangle size={18} className="text-amber-500" />
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 text-right"
+      >
+        <AlertTriangle size={18} className="shrink-0 text-amber-500" />
         <h2 className="font-bold text-slate-800">یادآور تمدید برنامه</h2>
-        <span className="mr-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
           {faNum(items.length)}
         </span>
-      </div>
-      <div className="space-y-2">
-        {items.map((r) => {
-          const d = daysUntil(r.renewal_due_at);
-          const text =
-            d == null ? "موعد تمدید"
-            : d <= 0 ? `موعد تمدید برنامه ${r.student_name ?? ""} رسیده`
-            : `${faNum(d)} روز تا موعد تمدید برنامه ${r.student_name ?? ""}`;
-          const urgent = d != null && d <= 2;
-          return (
-            <div
-              key={r.id}
-              className={`flex items-center gap-2 rounded-xl p-2.5 ${
-                urgent ? "bg-rose-50" : "bg-amber-50/60"
-              }`}
-            >
-              <span className="text-base">⚠️</span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-slate-700">{text}</div>
-                <div className="text-[11px] text-slate-400">
-                  روز تمدید: {faDate(r.renewal_due_at ?? undefined)}
-                  {r.program_months ? ` · برنامه ${faNum(r.program_months)} ماهه` : ""}
+        <ChevronDown size={16} className={`mr-auto text-amber-500 transition ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="mt-3 space-y-2">
+          {shown.map((r) => {
+            const d = daysUntil(r.renewal_due_at);
+            const text =
+              d == null ? "موعد تمدید"
+              : d <= 0 ? `موعد تمدید برنامه ${r.student_name ?? ""} رسیده`
+              : `${faNum(d)} روز تا موعد تمدید برنامه ${r.student_name ?? ""}`;
+            const urgent = d != null && d <= 2;
+            return (
+              <div
+                key={r.id}
+                className={`flex items-center gap-2 rounded-xl p-2.5 ${
+                  urgent ? "bg-rose-50" : "bg-amber-50/60"
+                }`}
+              >
+                <span className="text-base">⚠️</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-slate-700">{text}</div>
+                  <div className="text-[11px] text-slate-400">
+                    روز تمدید: {faDate(r.renewal_due_at ?? undefined)}
+                    {r.program_months ? ` · برنامه ${faNum(r.program_months)} ماهه` : ""}
+                  </div>
                 </div>
+                {r.mobile && <CallButton mobile={r.mobile} size="sm" />}
               </div>
-              {r.mobile && <CallButton mobile={r.mobile} size="sm" />}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+          {items.length > 3 && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="text-xs font-medium text-amber-600 hover:text-amber-700"
+            >
+              {showAll ? "بستن" : `نمایش همه (${faNum(items.length)})`}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -321,38 +346,55 @@ function IncompleteNag() {
     queryFn: async () => (await api.get("/students/incomplete")).data,
   });
   const items = data?.items ?? [];
+  // جمع‌شونده: به‌صورتِ پیش‌فرض بسته (فقط تیتر + عدد) تا صفحه شلوغ نشود.
+  const [open, setOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   if (items.length === 0) return null;
+  const shown = showAll ? items : items.slice(0, 3);
   return (
     <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <AlertTriangle size={18} className="text-rose-500" />
-        <h2 className="font-bold text-rose-700">اطلاعات ناقص — تکمیلش کن</h2>
-        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
-          {faNum(items.length)}
-        </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="flex flex-1 items-center gap-2 text-right"
+        >
+          <AlertTriangle size={18} className="shrink-0 text-rose-500" />
+          <h2 className="font-bold text-rose-700">اطلاعات ناقص — تکمیلش کن</h2>
+          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
+            {faNum(items.length)}
+          </span>
+          <ChevronDown size={16} className={`text-rose-400 transition ${open ? "rotate-180" : ""}`} />
+        </button>
         <Link
           href="/students"
-          className="mr-auto rounded-lg bg-rose-500 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-rose-600"
+          className="rounded-lg bg-rose-500 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-rose-600"
         >
           رفتن به تکمیل
         </Link>
       </div>
-      <div className="space-y-1.5">
-        {items.slice(0, 8).map((s) => (
-          <div key={s.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/70 p-2 text-sm">
-            <span className="font-medium text-slate-700">{s.full_name || s.mobile || "ناشناس"}</span>
-            <span className="text-xs text-slate-400">کم دارد:</span>
-            <span className="flex flex-wrap gap-1">
-              {s.missing.map((m, i) => (
-                <span key={i} className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] text-rose-700">{m}</span>
-              ))}
-            </span>
-          </div>
-        ))}
-        {items.length > 8 && (
-          <p className="text-xs text-rose-600">و {faNum(items.length - 8)} مورد دیگر…</p>
-        )}
-      </div>
+      {open && (
+        <div className="mt-3 space-y-1.5">
+          {shown.map((s) => (
+            <div key={s.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/70 p-2 text-sm">
+              <span className="font-medium text-slate-700">{s.full_name || s.mobile || "ناشناس"}</span>
+              <span className="text-xs text-slate-400">کم دارد:</span>
+              <span className="flex flex-wrap gap-1">
+                {s.missing.map((m, i) => (
+                  <span key={i} className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] text-rose-700">{m}</span>
+                ))}
+              </span>
+            </div>
+          ))}
+          {items.length > 3 && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="text-xs font-medium text-rose-600 hover:text-rose-700"
+            >
+              {showAll ? "بستن" : `نمایش همه (${faNum(items.length)})`}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -583,9 +625,11 @@ function LeadCard({
   const qc = useQueryClient();
   const toast = useToast();
   const [deleting, setDeleting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const hasInfo = lead.field || lead.grade || lead.goal || lead.gpa != null || lead.city || lead.lead_source;
   // «اقدام‌شده» = نتیجه‌ای برایش ثبت شده (کارت کم‌رنگ‌تر می‌شود تا از کارهای باقی‌مانده جدا شود)
   const actioned = !!lead.last_outcome;
+  const intl = toIntl(lead.mobile);
 
   async function onDelete() {
     if (!confirm(`شماره‌ی «${lead.full_name || lead.mobile}» حذف شود؟ این کار قابل بازگشت نیست.`)) return;
@@ -652,38 +696,76 @@ function LeadCard({
         <p className="text-xs text-slate-400">اطلاعاتش را با دکمه‌ی «مداد» کامل کن.</p>
       )}
 
-      {/* اقدام‌ها: تماس · واتساپ/تلگرام مستقیم · ثبت نتیجه · پیام · ویرایش */}
-      <div className="mt-auto flex flex-wrap items-center gap-2">
-        <CallButton mobile={lead.mobile} size="sm" />
-        <ContactLinks mobile={lead.mobile} size={16} />
+      {/* اقدام‌ها: دو دکمه‌ی اصلیِ بزرگ + منوی «بیشتر» (بقیه‌ی کارها با برچسبِ فارسی) */}
+      <div className="mt-auto flex items-center gap-2">
+        {/* دکمه‌ی اصلی ۱: تماس */}
+        <a
+          href={`tel:${lead.mobile}`}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-600 active:scale-95"
+        >
+          <Phone size={16} /> تماس
+        </a>
+        {/* دکمه‌ی اصلی ۲: ثبت نتیجه */}
         <button
           onClick={onResult}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 active:scale-95"
         >
-          <ClipboardCheck size={14} /> ثبت نتیجه
+          <ClipboardCheck size={16} /> ثبت نتیجه
         </button>
-        <button
-          onClick={onMsg}
-          title="ارسال پیام (پیامک/واتساپ/تلگرام/بله)"
-          className="inline-flex items-center justify-center rounded-lg border border-violet-200 bg-violet-50 p-1.5 text-violet-600 transition hover:bg-violet-100"
-        >
-          <MessageSquare size={14} />
-        </button>
-        <button
-          onClick={onEdit}
-          title="ویرایش / تکمیل اطلاعات"
-          className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
-        >
-          <Pencil size={14} />
-        </button>
-        <button
-          onClick={onDelete}
-          disabled={deleting}
-          title="حذف شماره"
-          className="mr-auto inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
-        >
-          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-        </button>
+        {/* منوی بیشتر */}
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            title="بیشتر"
+            aria-label="کارهای بیشتر"
+            className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-slate-500 transition hover:bg-slate-50"
+          >
+            <MoreHorizontal size={18} />
+          </button>
+          {menuOpen && (
+            <>
+              {/* پشتِ شفاف برای بستن با کلیکِ بیرون */}
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="absolute bottom-full left-0 z-20 mb-1 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                <a
+                  href={`https://wa.me/${intl}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+                >
+                  <MessageCircle size={16} className="text-emerald-600" /> واتساپ
+                </a>
+                <a
+                  href={`tg://resolve?phone=${intl}`}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+                >
+                  <Send size={16} className="text-sky-600" /> تلگرام
+                </a>
+                <button
+                  onClick={() => { onMsg(); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+                >
+                  <MessageSquare size={16} className="text-violet-600" /> پیام (پیامک / بله)
+                </button>
+                <button
+                  onClick={() => { onEdit(); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+                >
+                  <Pencil size={16} className="text-blue-600" /> ویرایش اطلاعات
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); onDelete(); }}
+                  disabled={deleting}
+                  className="flex w-full items-center gap-2.5 border-t border-slate-100 px-3 py-2.5 text-sm text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                >
+                  {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} حذف شماره
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
