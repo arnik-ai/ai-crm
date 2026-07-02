@@ -423,7 +423,7 @@ async def export_messages(
 ):
     """خروجی اکسلِ گزارش ارتباطات (استریم‌شده)."""
     svc = MessagingService(session)
-    channel_fa = {"sms": "پیامک", "whatsapp": "واتساپ", "telegram": "تلگرام"}
+    channel_fa = {"sms": "پیامک", "whatsapp": "واتساپ", "telegram": "تلگرام", "bale": "بله"}
     return await stream_csv_response(
         session,
         svc.export_query(),

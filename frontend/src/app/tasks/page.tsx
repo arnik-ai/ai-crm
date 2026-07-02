@@ -9,10 +9,11 @@ import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDate } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
 import { JalaliDatePicker } from "@/components/JalaliDatePicker";
+import { MessageModal } from "@/components/MessageModal";
 // (faDate برای نمایشِ تاریخِ ثبتِ شماره‌ی تکراری)
 import {
   ClipboardList, CalendarClock, PhoneMissed, PhoneOff, UserPlus, Loader2, Plus,
-  AlertTriangle, PhoneForwarded, Pencil, ClipboardCheck, X, Users, Trash2,
+  AlertTriangle, PhoneForwarded, Pencil, ClipboardCheck, X, Users, Trash2, MessageSquare,
 } from "lucide-react";
 
 const DEMO = isDemoMode();
@@ -491,6 +492,7 @@ function TodayLeads() {
   const leads = data?.items ?? [];
   const [resultLead, setResultLead] = useState<Lead | null>(null);
   const [editLead, setEditLead] = useState<Lead | null>(null);
+  const [msgLead, setMsgLead] = useState<Lead | null>(null);
 
   return (
     <div className="mt-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
@@ -513,19 +515,26 @@ function TodayLeads() {
               lead={l}
               onResult={() => setResultLead(l)}
               onEdit={() => setEditLead(l)}
+              onMsg={() => setMsgLead(l)}
             />
           ))}
         </div>
       )}
       {resultLead && <LeadResultModal lead={resultLead} onClose={() => setResultLead(null)} />}
       {editLead && <LeadEditModal lead={editLead} onClose={() => setEditLead(null)} />}
+      {msgLead && (
+        <MessageModal
+          student={{ id: msgLead.id, full_name: msgLead.full_name, mobile: msgLead.mobile }}
+          onClose={() => setMsgLead(null)}
+        />
+      )}
     </div>
   );
 }
 
 function LeadCard({
-  lead, onResult, onEdit,
-}: { lead: Lead; onResult: () => void; onEdit: () => void }) {
+  lead, onResult, onEdit, onMsg,
+}: { lead: Lead; onResult: () => void; onEdit: () => void; onMsg: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [deleting, setDeleting] = useState(false);
@@ -606,6 +615,13 @@ function LeadCard({
           className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
         >
           <ClipboardCheck size={14} /> ثبت نتیجه
+        </button>
+        <button
+          onClick={onMsg}
+          title="ارسال پیام (پیامک/واتساپ/تلگرام/بله)"
+          className="inline-flex items-center justify-center rounded-lg border border-violet-200 bg-violet-50 p-1.5 text-violet-600 transition hover:bg-violet-100"
+        >
+          <MessageSquare size={14} />
         </button>
         <button
           onClick={onEdit}

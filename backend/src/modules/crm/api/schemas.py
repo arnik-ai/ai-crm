@@ -239,8 +239,9 @@ class InstallmentCreate(BaseModel):
         return _normalize_mobile(v) if v else v
 
 
-# ---------- پیام‌رسانی (پیامک/واتساپ/تلگرام) ----------
-MessageChannel = Literal["sms", "whatsapp", "telegram"]
+# ---------- پیام‌رسانی (پیامک/واتساپ/تلگرام/بله) ----------
+# sms واقعاً از سرور ارسال می‌شود؛ بقیه از سمتِ کلاینت (لینک/کپی) و اینجا فقط ثبت می‌شوند.
+MessageChannel = Literal["sms", "whatsapp", "telegram", "bale"]
 
 
 class MessageCreate(BaseModel):
