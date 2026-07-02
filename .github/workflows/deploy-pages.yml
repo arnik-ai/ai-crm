@@ -52,3 +52,9 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # مقاوم‌تر در برابرِ فلیکِ گذرای GitHub Pages: مهلتِ بیشتر + تحملِ خطاهای موقتیِ
+          # بیشتر قبل از fail (تا ایمیلِ شکستِ الکی نیاید). build همیشه سالم است؛ فقط
+          # مرحله‌ی انتشار گاهی سمتِ GitHub می‌لرزد.
+          timeout: 900000
+          error_count: 25
