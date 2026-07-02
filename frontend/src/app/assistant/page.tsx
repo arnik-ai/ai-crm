@@ -37,10 +37,12 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    // روی موبایل ارتفاعِ ثابت + اسکرولِ داخلی تا ورودی همیشه بالای نوارِ پایین بماند
+    // و زیرِ آن گیر نکند. روی دسکتاپ رفتار عادی.
+    <div className="flex h-[100dvh] flex-col overflow-hidden md:h-auto md:min-h-screen md:flex-row md:overflow-visible">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8">
-        <div className="mb-6 flex items-center justify-between gap-3">
+      <main className="flex min-h-0 flex-1 flex-col p-4 pb-24 md:p-8 md:pb-8">
+        <div className="mb-6 flex shrink-0 items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-md shadow-violet-200">
               <Bot size={22} />
@@ -53,7 +55,7 @@ export default function AssistantPage() {
           <BackButton dark />
         </div>
 
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-4 flex shrink-0 flex-wrap gap-2">
           {samples.map((s) => (
             <button
               key={s}
@@ -65,14 +67,14 @@ export default function AssistantPage() {
           ))}
         </div>
 
-        <div className="card mb-4 max-h-[60vh] min-h-[300px] space-y-4 overflow-y-auto">
+        <div className="card mb-3 min-h-0 flex-1 space-y-4 overflow-y-auto">
           {messages.map((m, i) => (
             <div
               key={i}
               className={`max-w-[80%] rounded-xl p-3 text-sm ${
                 m.role === "user"
                   ? "ms-auto bg-brand text-white"
-                  : "bg-slate-100"
+                  : "bg-slate-100 text-slate-800"
               }`}
             >
               <div>{m.text}</div>
@@ -105,7 +107,7 @@ export default function AssistantPage() {
             e.preventDefault();
             send(input);
           }}
-          className="flex gap-2"
+          className="flex shrink-0 gap-2"
         >
           <input
             value={input}
