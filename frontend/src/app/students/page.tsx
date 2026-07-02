@@ -13,7 +13,8 @@ import { ExportAllButton } from "@/components/ExportAllButton";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
-import { Search, Users, GraduationCap, Phone, MessageSquare, X, Loader2, Send, Pencil, Trash2, UserPlus } from "lucide-react";
+import { MessageModal } from "@/components/MessageModal";
+import { Search, Users, GraduationCap, Phone, MessageSquare, X, Loader2, Pencil, Trash2, UserPlus } from "lucide-react";
 
 const DEMO = isDemoMode();
 
@@ -41,20 +42,6 @@ type Student = {
   assigned_agent_id?: string | null;
   advisor_name?: string | null;
 };
-
-/** کانال‌های پیام برای مودال ارسال پیام. */
-const MSG_CHANNELS = [
-  { v: "sms", label: "پیامک سامانه‌ای" },
-  { v: "whatsapp", label: "واتساپ" },
-  { v: "telegram", label: "تلگرام" },
-];
-
-/** شماره به ارقام بین‌المللی بدون + (۰ ابتدایی → ۹۸) برای لینک پیام‌رسان. */
-function toIntl(mobile: string): string {
-  let d = mobile.replace(/\D/g, "");
-  if (d.startsWith("0")) d = "98" + d.slice(1);
-  return d;
-}
 
 /** نشان رنگی رشته‌ی تحصیلی: تجربی / ریاضی / انسانی. */
 function FieldBadge({ field }: { field?: string }) {
@@ -612,115 +599,3 @@ function EditStudentModal({ student, onClose }: { student: Student; onClose: () 
   );
 }
 
-/* ---------- مودال ارسال پیام (پیامک/واتساپ/تلگرام، متن آزاد) ---------- */
-function MessageModal({ student, onClose }: { student: Student; onClose: () => void }) {
-  const [channel, setChannel] = useState("sms");
-  const [text, setText] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim()) {
-      setMsg("متن پیام را بنویسید.");
-      return;
-    }
-    setMsg("");
-    setLoading(true);
-    try {
-      // ثبت پیام در سرور (در دمو ذخیره نمی‌شود)
-      if (!DEMO) {
-        await api.post("/messages", {
-          mobile: student.mobile, channel, body: text,
-          student_id: student.id,
-        });
-      }
-      // واتساپ/تلگرام: باز کردن پیام‌رسان با متن آماده
-      const intl = toIntl(student.mobile);
-      if (channel === "whatsapp") {
-        window.open(`https://wa.me/${intl}?text=${encodeURIComponent(text)}`, "_blank");
-      } else if (channel === "telegram") {
-        window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(text)}`, "_blank");
-      }
-      setMsg(DEMO ? "در حالت نمایشی ثبت نشد (پیام‌رسان باز شد)." : "پیام ثبت شد ✓");
-      if (!DEMO && channel === "sms") onClose();
-    } catch {
-      setMsg("ارسال ناموفق بود.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-bold text-slate-800">
-            <MessageSquare size={18} className="text-violet-600" /> ارسال پیام
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <p className="mb-4 text-sm text-slate-500">
-          {student.full_name ?? "ناشناس"} · <span dir="ltr">{student.mobile}</span>
-        </p>
-
-        <form onSubmit={submit} className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {MSG_CHANNELS.map((c) => (
-              <button
-                key={c.v}
-                type="button"
-                onClick={() => setChannel(c.v)}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                  channel === c.v
-                    ? "bg-violet-500 text-white shadow-sm shadow-violet-200"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={4}
-            placeholder="متن پیام را آزادانه بنویسید…"
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-violet-400"
-          />
-
-          <div className="flex items-center justify-end gap-2">
-            {msg && <span className="mr-auto text-xs text-slate-500">{msg}</span>}
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-            >
-              بستن
-            </button>
-            <button
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 disabled:opacity-60"
-            >
-              {loading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-              {channel === "sms" ? "ارسال پیامک" : "باز کردن و ثبت"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
