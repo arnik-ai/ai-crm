@@ -138,39 +138,31 @@ export default function StudentsPage() {
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-9 pl-3 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
             />
           </div>
-          {/* تفکیک بر اساس رشته */}
+          {/* تفکیک بر اساس رشته — منوی کشویی */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-slate-400">رشته:</span>
-            {FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setField(f)}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                  field === f
-                    ? "bg-blue-500 text-white shadow-sm shadow-blue-200"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
+            <select
+              value={field}
+              onChange={(e) => setField(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400"
+            >
+              {FILTERS.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
           </div>
-          {/* تفکیک بر اساس پایه (دهم/یازدهم/…) */}
+          {/* تفکیک بر اساس پایه (دهم/یازدهم/…) — منوی کشویی */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-slate-400">پایه:</span>
-            {GRADE_FILTERS.map((g) => (
-              <button
-                key={g}
-                onClick={() => setGrade(g)}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                  grade === g
-                    ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {g}
-              </button>
-            ))}
+            <select
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-400"
+            >
+              {GRADE_FILTERS.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
           </div>
         </div>
 
