@@ -10,6 +10,7 @@ import { Pagination } from "@/components/Pagination";
 import { ExportButton } from "@/components/ExportButton";
 import { ExportAllButton } from "@/components/ExportAllButton";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { faNum, faDateTime } from "@/lib/utils";
 import { Search, CalendarClock, CalendarCheck, ListTodo, Check, Trash2, Loader2 } from "lucide-react";
@@ -231,29 +232,35 @@ export default function FollowupsPage() {
 function FollowupActions({ id, mobile }: { id: string; mobile: string }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
   async function done() {
-    if (DEMO) { alert("در حالت نمایشی ذخیره نمی‌شود."); return; }
+    if (DEMO) { toast("در حالت نمایشی ذخیره نمی‌شود.", "error"); return; }
     setBusy(true);
     try {
       await api.post(`/followups/${id}/done`);
       qc.invalidateQueries({ queryKey: ["followups"] });
       qc.invalidateQueries({ queryKey: ["tasks-today"] });
       toast("پیگیری انجام شد ✓");
-    } catch { alert("ثبت ناموفق بود."); setBusy(false); }
+    } catch { toast("ثبت ناموفق بود.", "error"); setBusy(false); }
   }
 
   async function remove() {
-    if (!confirm("این پیگیری حذف شود؟")) return;
-    if (DEMO) { alert("در حالت نمایشی حذف نمی‌شود."); return; }
+    const ok = await confirm({
+      title: "حذفِ این پیگیری؟",
+      message: "این پیگیری از فهرست حذف می‌شود.",
+      confirmText: "بله، حذف کن", cancelText: "نه، بی‌خیال", danger: true,
+    });
+    if (!ok) return;
+    if (DEMO) { toast("در حالت نمایشی حذف نمی‌شود.", "error"); return; }
     setBusy(true);
     try {
       await api.delete(`/followups/${id}`);
       qc.invalidateQueries({ queryKey: ["followups"] });
       qc.invalidateQueries({ queryKey: ["tasks-today"] });
       toast("پیگیری حذف شد ✓");
-    } catch { alert("حذف ناموفق بود."); setBusy(false); }
+    } catch { toast("حذف ناموفق بود.", "error"); setBusy(false); }
   }
 
   return (

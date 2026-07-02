@@ -8,6 +8,7 @@ import { CallButton } from "@/components/CallButton";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDate } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import { MessageModal } from "@/components/MessageModal";
 // (faDate برای نمایشِ تاریخِ ثبتِ شماره‌ی تکراری)
@@ -624,6 +625,7 @@ function LeadCard({
 }: { lead: Lead; onResult: () => void; onEdit: () => void; onMsg: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const hasInfo = lead.field || lead.grade || lead.goal || lead.gpa != null || lead.city || lead.lead_source;
@@ -632,8 +634,13 @@ function LeadCard({
   const intl = toIntl(lead.mobile);
 
   async function onDelete() {
-    if (!confirm(`شماره‌ی «${lead.full_name || lead.mobile}» حذف شود؟ این کار قابل بازگشت نیست.`)) return;
-    if (DEMO) { alert("در حالت نمایشی حذف نمی‌شود."); return; }
+    const ok = await confirm({
+      title: "حذفِ این شماره؟",
+      message: `«${lead.full_name || lead.mobile}» برای همیشه حذف می‌شود.`,
+      confirmText: "بله، حذف کن", cancelText: "نه، بی‌خیال", danger: true,
+    });
+    if (!ok) return;
+    if (DEMO) { toast("در حالت نمایشی حذف نمی‌شود.", "error"); return; }
     setDeleting(true);
     try {
       await api.delete(`/students/${lead.id}`);
@@ -641,7 +648,7 @@ function LeadCard({
       qc.invalidateQueries({ queryKey: ["students"] });
       toast("شماره حذف شد ✓");
     } catch {
-      alert("حذف ناموفق بود.");
+      toast("حذف ناموفق بود.", "error");
       setDeleting(false);
     }
   }

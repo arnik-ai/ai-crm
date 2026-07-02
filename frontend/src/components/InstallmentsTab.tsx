@@ -7,6 +7,7 @@ import { faNum } from "@/lib/utils";
 import { J_MONTHS } from "@/lib/jalali";
 import { Plus, X, Loader2, Trash2, CalendarClock } from "lucide-react";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { Pagination } from "@/components/Pagination";
 
 const PAGE_SIZE = 50;
@@ -32,6 +33,8 @@ function amountFa(toman: number): string {
 
 export function InstallmentsTab() {
   const qc = useQueryClient();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [page, setPage] = useState(1);
   const { data } = useQuery<{ items: Plan[]; total?: number }>({
     queryKey: ["installments", page],
@@ -64,13 +67,19 @@ export function InstallmentsTab() {
   }
 
   async function remove(p: Plan) {
-    if (!confirm(`ردیفِ «${p.student_name ?? "—"}» حذف شود؟`)) return;
+    const ok = await confirm({
+      title: "حذفِ این ردیف؟",
+      message: `ردیفِ اقساطِ «${p.student_name ?? "—"}» حذف می‌شود.`,
+      confirmText: "بله، حذف کن", cancelText: "نه، بی‌خیال", danger: true,
+    });
+    if (!ok) return;
     if (DEMO) return;
     try {
       await api.delete(`/installments/${p.id}`);
       qc.invalidateQueries({ queryKey: ["installments"] });
+      toast("ردیف حذف شد ✓");
     } catch {
-      alert("حذف ناموفق بود.");
+      toast("حذف ناموفق بود.", "error");
     }
   }
 

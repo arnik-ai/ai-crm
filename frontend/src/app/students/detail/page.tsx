@@ -11,6 +11,7 @@ import { ContactLinks } from "@/components/ContactLinks";
 import { MessageModal } from "@/components/MessageModal";
 import { faNum, faDate } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { User, Phone, MessageSquare, Pencil, Trash2, Loader2, X, GraduationCap } from "lucide-react";
 
 const DEMO = isDemoMode();
@@ -49,6 +50,7 @@ function StudentDetail() {
   const router = useRouter();
   const id = params.get("id") ?? "";
   const toast = useToast();
+  const confirm = useConfirm();
   const qc = useQueryClient();
   const [showMsg, setShowMsg] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -62,8 +64,13 @@ function StudentDetail() {
 
   async function onDelete() {
     if (!s) return;
-    if (!confirm(`«${s.full_name || s.mobile}» حذف شود؟ این کار قابل بازگشت نیست.`)) return;
-    if (DEMO) { alert("در حالت نمایشی حذف نمی‌شود."); return; }
+    const ok = await confirm({
+      title: "حذفِ این دانش‌آموز؟",
+      message: `«${s.full_name || s.mobile}» برای همیشه حذف می‌شود.`,
+      confirmText: "بله، حذف کن", cancelText: "نه، بی‌خیال", danger: true,
+    });
+    if (!ok) return;
+    if (DEMO) { toast("در حالت نمایشی حذف نمی‌شود.", "error"); return; }
     setDeleting(true);
     try {
       await api.delete(`/students/${s.id}`);
@@ -71,7 +78,7 @@ function StudentDetail() {
       toast("حذف شد ✓");
       router.push("/students");
     } catch {
-      alert("حذف ناموفق بود.");
+      toast("حذف ناموفق بود.", "error");
       setDeleting(false);
     }
   }

@@ -10,6 +10,7 @@ import { ExportAllButton } from "@/components/ExportAllButton";
 import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import { InstallmentsTab } from "@/components/InstallmentsTab";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDigits, faDate } from "@/lib/utils";
@@ -371,18 +372,24 @@ export default function SalesPage() {
 function DeleteSaleButton({ sale }: { sale: Sale }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
   async function onDelete() {
-    if (!confirm(`فیشِ «${sale.student_name || sale.mobile || "بدون نام"}» به مبلغِ ${amountFa(sale.amount)} حذف شود؟ این کار قابل بازگشت نیست.`)) return;
-    if (DEMO) { alert("در حالت نمایشی حذف نمی‌شود."); return; }
+    const ok = await confirm({
+      title: "حذفِ این فیش؟",
+      message: `فیشِ «${sale.student_name || sale.mobile || "بدون نام"}» به مبلغِ ${amountFa(sale.amount)} برای همیشه حذف می‌شود.`,
+      confirmText: "بله، حذف کن", cancelText: "نه، بی‌خیال", danger: true,
+    });
+    if (!ok) return;
+    if (DEMO) { toast("در حالت نمایشی حذف نمی‌شود.", "error"); return; }
     setBusy(true);
     try {
       await api.delete(`/sales/${sale.id}`);
       qc.invalidateQueries({ queryKey: ["sales"] });
       toast("فیش حذف شد ✓");
     } catch {
-      alert("حذف ناموفق بود.");
+      toast("حذف ناموفق بود.", "error");
     } finally {
       setBusy(false);
     }
