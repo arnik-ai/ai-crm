@@ -66,13 +66,18 @@ export function MessageModal({
       if (channel === "whatsapp") {
         window.open(`https://wa.me/${intl}?text=${encodeURIComponent(text)}`, "_blank");
       } else if (channel === "telegram") {
-        window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(text)}`, "_blank");
+        // مستقیم می‌رود سراغِ همان شماره (مثلِ واتساپ). تلگرام «متنِ آماده با شماره»
+        // را قبول نمی‌کند، پس متن را کپی می‌کنیم تا کاربر داخلِ چت پیست کند.
+        try { await navigator.clipboard.writeText(text); } catch { /* بی‌صدا */ }
+        window.open(`tg://resolve?phone=${intl}`, "_blank");
       } else if (channel === "bale") {
         // بله لینکِ «چت با شماره + متن» ندارد → متن را کپی و وبِ بله را باز می‌کنیم.
         try { await navigator.clipboard.writeText(text); } catch { /* بی‌صدا */ }
         window.open("https://web.bale.ai", "_blank");
       }
-      if (channel === "bale") {
+      if (channel === "telegram") {
+        setMsg("چت تلگرام باز شد؛ متن کپی شد — داخلِ چت پیست کن.");
+      } else if (channel === "bale") {
         setMsg("متن کپی شد؛ در بله برای این شماره پیست کن.");
       } else {
         setMsg(DEMO ? "در حالت نمایشی ثبت نشد (پیام‌رسان باز شد)." : "پیام ثبت شد ✓");

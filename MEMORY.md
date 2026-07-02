@@ -288,6 +288,18 @@ docs/     → ۱۲ سند معماری فارسی
     - **push شد** (commit `adbc159` رفعِ SW/فیش/… + این کامیت). ⚠️ بک‌اند روی VPS باید دوباره
       build شود (`docker compose up -d --build`) تا مایگریشنِ 0009 + کانالِ bale + رفعِ فیش اعمال شود.
 
+38. **تلگرامِ مستقیم + رفعِ پرشِ نوارِ پایین روی iOS** —
+    - **تلگرام مثلِ واتساپ:** در `MessageModal`، کانالِ تلگرام از `t.me/share` (که دیالوگِ
+      انتخابِ مخاطب باز می‌کرد) به `tg://resolve?phone=` تغییر کرد → مستقیم می‌رود سراغِ همان
+      شماره. چون تلگرام «متنِ آماده با شماره» را قبول نمی‌کند، متن در کلیپ‌بورد کپی می‌شود (پیست).
+    - 🐞 **پرشِ نوارِ پایینِ موبایل (BottomNav) هنگامِ اسکرول:** باگِ کلاسیکِ iOS Safari —
+      اسکرولِ «بدنه» نوارِ داینامیکِ Safari را باز/بسته می‌کند و عنصرِ `position:fixed;bottom:0`
+      می‌پرد. رفع در `dashboard/layout.tsx`: روی موبایل shell را `h-[100dvh] overflow-hidden`
+      کردیم و اسکرول را به `main` (`overflow-y-auto`) منتقل کردیم تا بدنه اسکرول نشود؛ دسکتاپ
+      (`md:`) دست‌نخورده (بدنه اسکرول). + `pb-[env(safe-area-inset-bottom)]` روی نوار برای
+      home-indicatorِ آیفون (حالتِ PWA). ⚠️ الگو: نوارِ ثابتِ پایین روی iOS = اسکرول را داخلِ
+      کانتینر بگذار، نه بدنه.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
