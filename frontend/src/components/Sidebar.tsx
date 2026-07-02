@@ -7,23 +7,23 @@ import { getSession, isManager, isAuthenticated, logout, type SessionInfo } from
 
 // managerOnly: فقط مدیر فروش/ادمین می‌بیند (پنل مدیر فروش).
 const items = [
-  { href: "/tasks", label: "کارهای روز", icon: ClipboardList, managerOnly: false },
+  { href: "/tasks", label: "کارهای امروزِ من", icon: ClipboardList, managerOnly: false },
   { href: "/dashboard", label: "داشبورد", icon: LayoutDashboard, managerOnly: true },
-  { href: "/students", label: "دانشجویان / سرنخ‌ها", icon: Users, managerOnly: false },
+  { href: "/students", label: "دانش‌آموزان", icon: Users, managerOnly: false },
   { href: "/calls", label: "تماس‌ها", icon: Phone, managerOnly: false },
-  { href: "/sales", label: "لیست فروش", icon: ShoppingCart, managerOnly: false },
+  { href: "/sales", label: "فروش‌ها", icon: ShoppingCart, managerOnly: false },
   { href: "/followups", label: "پیگیری‌ها", icon: ListTodo, managerOnly: false },
-  { href: "/reports", label: "گزارش‌ها (پنل مدیر)", icon: BarChart3, managerOnly: true },
-  { href: "/users", label: "مدیریت کاربران", icon: UserCog, managerOnly: true },
-  { href: "/assistant", label: "دستیار هوشمند", icon: Bot, managerOnly: false },
-  { href: "/guide", label: "راهنمای دسترسی‌ها", icon: ShieldCheck, managerOnly: false },
+  { href: "/reports", label: "گزارشِ مدیر", icon: BarChart3, managerOnly: true },
+  { href: "/users", label: "کاربران", icon: UserCog, managerOnly: true },
+  { href: "/assistant", label: "دستیار (بپرس)", icon: Bot, managerOnly: false },
+  { href: "/guide", label: "راهنما", icon: ShieldCheck, managerOnly: false },
 ];
 
 // آیتم‌های پرکاربردِ نوارِ پایینِ موبایل (دسترسی یک‌لمسی برای همه‌ی نقش‌ها)
 const bottomItems = [
   { href: "/tasks", label: "کارها", icon: ClipboardList },
   { href: "/calls", label: "تماس‌ها", icon: Phone },
-  { href: "/students", label: "سرنخ‌ها", icon: Users },
+  { href: "/students", label: "دانش‌آموزان", icon: Users },
   { href: "/sales", label: "فروش", icon: ShoppingCart },
   { href: "/followups", label: "پیگیری", icon: ListTodo },
 ];
