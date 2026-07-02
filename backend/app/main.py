@@ -129,3 +129,14 @@ app.include_router(webhook_router, prefix=f"{API}/webhooks", tags=["webhooks"])
 app.include_router(ai_router, prefix=f"{API}/ai", tags=["ai"])
 app.include_router(dashboard_router, prefix=f"{API}/dashboard", tags=["dashboard"])
 app.include_router(assistant_router, prefix=f"{API}/ai/assistant", tags=["assistant"])
+
+# ماژولِ اختیاری و حذف‌شدنیِ «باشگاه مشتریان» (Loyalty).
+# فقط اگر LOYALTY_ENABLED=true باشد ثبت می‌شود. try/except: اگر پوشه‌ی
+# modules/loyalty/ حذف شود، این بلاک بی‌صدا رد می‌شود و بقیه‌ی برنامه سالم می‌ماند.
+# (جزئیاتِ نصب/حذف: docs/12-LOYALTY-CLUB.md)
+if settings.loyalty_enabled:
+    try:
+        from src.modules.loyalty.api.routes import router as loyalty_router
+        app.include_router(loyalty_router, prefix=f"{API}/loyalty", tags=["loyalty"])
+    except Exception:  # noqa: BLE001 — ماژولِ loyalty اختیاری است
+        pass

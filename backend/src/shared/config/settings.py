@@ -72,6 +72,11 @@ class Settings(BaseSettings):
     otp_request_cooldown: int = 60      # حداقل فاصله بین دو درخواست کد (ثانیه)
     otp_max_attempts: int = 5           # حداکثر تلاش اشتباه برای هر کد
 
+    # ماژولِ اختیاریِ باشگاه مشتریان (Loyalty) — پیش‌فرض خاموش.
+    # روشن‌کردن: LOYALTY_ENABLED=true. خاموش‌بودن، routerها را ثبت نمی‌کند و
+    # projection را اجرا نمی‌کند (کاملاً بی‌اثر). حذفِ کاملِ ماژول: docs/12-LOYALTY-CLUB.md.
+    loyalty_enabled: bool = False
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

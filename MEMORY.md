@@ -376,6 +376,22 @@ docs/     → ۱۲ سند معماری فارسی
     (ریزش/کمپین) روی `LLMProvider` موجود. ⚠️ هنوز پیاده‌سازی نشده؛ فازبندی در سند. کاربر خواست
     «هر وقت خواستم راحت حذف شود بدونِ آسیب به پروژه» → بخشِ «Uninstall چک‌لیست» در سند.
 
+45. **باشگاه مشتریان — فاز ۱ پیاده‌سازی شد (ماژولِ حذف‌شدنی)** —
+    ماژولِ جدید `backend/src/modules/loyalty/` (کاملاً مستقل، خاموشِ پیش‌فرض `LOYALTY_ENABLED=false`):
+    - **ORM** (`infrastructure/models.py`): `loyalty_*` بدونِ FK سختِ هسته (student_id/account_id نرم).
+    - **Rule Engine** (`application/rule_engine.py`): موتورِ قطعیِ خالص (fixed/ratio/tiered) — **نه LLM**.
+    - **Service** (`loyalty_service.py`): `process_event` idempotent (idempotency_key=dedup+rule)،
+      بازمحاسبه‌ی موجودی/سطح از Ledger، حساب/تاریخچه/leaderboard/levels.
+    - **Projection** (`projection.py`): اسکنِ **SQL-خامِ** `sales`/`calls` (صفر importِ هسته) → رویداد.
+    - **API** `/api/v1/loyalty` (accounts/transactions/leaderboard/levels/scan/events) با مجوزهای
+      موجودِ `students:read|write` (بدونِ permission جدید).
+    - **migration `0010_loyalty`** (SQL خام، جدا از env.py) + seedِ ۴ سطح و ۵ قانون؛ downgrade فقط
+      جدول‌های `loyalty_*` را drop می‌کند. `main.py` با `if loyalty_enabled: try/except include`.
+    - ⚠️ **حذفِ کامل:** پاک‌کردنِ پوشه + downgradeِ 0010 + برداشتنِ خطِ include → هسته دست‌نخورده
+      (چون try/except حتی بدونِ برداشتنِ خط هم نمی‌شکند). چک‌لیست در `docs/12-LOYALTY-CLUB.md`.
+    - **تست:** ۶ تستِ موتور (`tests/test_loyalty_engine.py`) → **۳۵ تستِ بک‌اند سبز ✅**. اپ با
+      loyalty روشن/خاموش هر دو سالم import می‌شود. فاز ۲..۴ (پاداش/معرفی/AI-LangGraph) هنوز مانده.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.

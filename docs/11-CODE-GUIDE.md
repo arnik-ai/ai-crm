@@ -265,6 +265,39 @@ LLM پیام را به intent نگاشت می‌کند (call_today، likely_to_r
 
 ---
 
+## ماژول loyalty (باشگاه مشتریان) — اختیاری و حذف‌شدنی
+
+> ⭐ کاملاً مستقل: بدونِ FK سختِ هسته، جدول‌های `loyalty_*`، سوییچِ `LOYALTY_ENABLED`.
+> حذفِ کامل = پاک‌کردنِ پوشه + downgradeِ migration `0010`. مرجع: [`12-LOYALTY-CLUB.md`](12-LOYALTY-CLUB.md).
+
+### `infrastructure/models.py`
+ORM جدول‌های loyalty: `LoyaltyAccount` (امتیاز/سطح/کد دعوت — student_id نرم)، `PointTransaction`
+(Ledger با idempotency_key یکتا)، `LoyaltyLevel`/`LoyaltyRule` (پیکربندیِ داده‌ای)، `LoyaltyEvent`
+(لاگ با dedup_key)، `LoyaltyCheckpoint` (نشانگرِ اسکن). هیچ FK سختی به جدول‌های هسته ندارد.
+
+### `application/rule_engine.py`
+موتورِ **قطعیِ خالص** (بدون DB، تست‌پذیر): `conditions_match` (AND روی شرط‌ها)، `compute_points`
+(fixed/ratio/tiered)، `evaluate_rule` (شرط نگرفت→None، وگرنه امتیاز). هیچ LLM/تصادفی‌ای نیست.
+
+### `application/loyalty_service.py`
+`get_or_create_account` (+کد دعوتِ یکتا)، `process_event` (اجرای قوانینِ فعالِ همان event_type،
+ثبتِ تراکنش با `idempotency_key` = dedup+rule → ضدِ دوباره‌شماری)، `_recompute` (موجودی/سطح از
+Ledger)، `account_profile`/`transactions`/`leaderboard`/`levels`.
+
+### `application/projection.py`
+اتصالِ **صفر-دست‌زدن به هسته**: با SQL خام جدول‌های `sales`/`calls` را از checkpoint می‌خواند و
+به `process_event` می‌دهد (dedup_key = `sale:{id}`/`call:{id}`). عمداً مدل‌های هسته را import نمی‌کند.
+
+### `api/routes.py`
+`/api/v1/loyalty`: `GET accounts/{id}`، `accounts/{id}/transactions`، `leaderboard`، `levels`،
+`POST scan` (projection دستی/ادمین)، `POST events` (تزریقِ دستیِ رویداد). از مجوزهای موجودِ
+`students:read|write` استفاده می‌کند (بدونِ افزودنِ permission به seed هسته).
+
+> ثبت در `app/main.py`: بلاکِ `if settings.loyalty_enabled: try: include_router(...)` — با
+> try/except تا حذفِ پوشه، برنامه را نشکند.
+
+---
+
 ## فرانت‌اند
 
 ### lib/

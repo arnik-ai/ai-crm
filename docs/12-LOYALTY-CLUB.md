@@ -1,8 +1,30 @@
 # باشگاه مشتریان و سیستم معرفی دوستان (Loyalty & Referral)
 
-> نسخه ۱.۰ (طراحی) | ماژولِ **کاملاً مستقل و حذف‌شدنی** | backend-first، بدونِ وابستگی به UI
+> نسخه ۱.۱ | ماژولِ **کاملاً مستقل و حذف‌شدنی** | backend-first، بدونِ وابستگی به UI
 >
-> ⚠️ این سند فقط **طراحی** است. هیچ کدی هنوز پیاده نشده. پیاده‌سازی پس از تأیید، فاز‌به‌فاز.
+> ✅ **فاز ۱ پیاده‌سازی شد** (جدول‌ها + حساب + Ledger + Rule Engine + رویدادهای پایه +
+> سطح‌بندی + projection + API). خاموشِ پیش‌فرض (`LOYALTY_ENABLED=false`). فاز ۲..۴ هنوز طراحی‌اند.
+
+---
+
+## 🧱 وضعیتِ پیاده‌سازیِ فاز ۱ (فایل‌های واقعی)
+```
+backend/src/modules/loyalty/
+├── infrastructure/models.py     # ORM: LoyaltyAccount, PointTransaction, LoyaltyLevel,
+│                                #      LoyaltyRule, LoyaltyEvent, LoyaltyCheckpoint (بدون FK سخت)
+├── application/rule_engine.py   # موتورِ قطعیِ خالص (conditions_match/compute_points/evaluate_rule)
+├── application/loyalty_service.py # حساب، process_event (idempotent)، سطح، تاریخچه، leaderboard
+├── application/projection.py    # اسکنِ SQL-خامِ sales/calls → رویداد (صفر importِ هسته)
+└── api/routes.py                # /api/v1/loyalty (accounts/transactions/leaderboard/levels/scan/events)
+
+backend/migrations/versions/0010_loyalty.py  # ساختِ جدول‌های loyalty_* + seedِ سطوح/قوانین
+backend/tests/test_loyalty_engine.py         # ۶ تستِ قطعی‌بودنِ موتور
+```
+**اتصال:** حالتِ **Projection** (پیش‌فرضِ فاز ۱) — `POST /loyalty/scan` (دستی/ادمین؛ بعداً
+Celery-beat) جدول‌های `sales`/`calls` را با SQL خام می‌خواند؛ **هیچ خطی به هسته اضافه نشده**.
+**سوییچ:** `LOYALTY_ENABLED=true` در `.env`. خاموش = هیچ routeی سوار نمی‌شود.
+
+⚠️ این سند فقط **طراحی + وضعیت** است؛ فاز ۲..۴ (پاداش/معرفی/AI) هنوز پیاده نشده.
 
 ---
 
