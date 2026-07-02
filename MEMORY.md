@@ -368,6 +368,14 @@ docs/     → ۱۲ سند معماری فارسی
       ردیفِ اقساط) به آن وصل شدند + پیام‌های خطا/دموِ همان توابع به **toastِ قرمز** (`"error"`).
       دیگر هیچ `window.confirm` در فرانت نمانده. ⚠️ فقط ظاهر؛ منطق دست‌نخورده. tsc/build پاس ✅.
 
+44. **طراحیِ باشگاه مشتریان (فقط سند، بدونِ کد)** — [`docs/12-LOYALTY-CLUB.md`](docs/12-LOYALTY-CLUB.md).
+    ماژولِ Loyalty & Referral **کاملاً مستقل و حذف‌شدنی**: پوشه‌ی جدا `modules/loyalty/`،
+    بدونِ FK سختِ جدول‌های هسته (`student_id` نرم)، جدول‌ها با پیشوندِ `loyalty_`، سوییچِ
+    `LOYALTY_ENABLED`، و اتصال با Event Bus/Outbox یا Projection (صفر-دست‌زدن به هسته).
+    هسته = **Rules Engine قطعیِ JSON-محور** (نه LLM). LangGraph فقط در لایه‌ی AI مشورتیِ جدا
+    (ریزش/کمپین) روی `LLMProvider` موجود. ⚠️ هنوز پیاده‌سازی نشده؛ فازبندی در سند. کاربر خواست
+    «هر وقت خواستم راحت حذف شود بدونِ آسیب به پروژه» → بخشِ «Uninstall چک‌لیست» در سند.
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.
