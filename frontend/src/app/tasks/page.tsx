@@ -324,7 +324,7 @@ function IncompleteNag() {
   if (items.length === 0) return null;
   return (
     <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm">
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <AlertTriangle size={18} className="text-rose-500" />
         <h2 className="font-bold text-rose-700">اطلاعات ناقص — تکمیلش کن</h2>
         <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
