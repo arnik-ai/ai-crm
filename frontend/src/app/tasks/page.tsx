@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiErrorMessage } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { CallButton } from "@/components/CallButton";
+import { ContactLinks } from "@/components/ContactLinks";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDate } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
@@ -607,9 +608,10 @@ function LeadCard({
         <p className="text-xs text-slate-400">اطلاعاتش را با دکمه‌ی «مداد» کامل کن.</p>
       )}
 
-      {/* اقدام‌ها: تماس · ثبت نتیجه · ویرایش */}
-      <div className="mt-auto flex items-center gap-2">
+      {/* اقدام‌ها: تماس · واتساپ/تلگرام مستقیم · ثبت نتیجه · پیام · ویرایش */}
+      <div className="mt-auto flex flex-wrap items-center gap-2">
         <CallButton mobile={lead.mobile} size="sm" />
+        <ContactLinks mobile={lead.mobile} size={16} />
         <button
           onClick={onResult}
           className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
@@ -811,8 +813,9 @@ function LeadResultModal({ lead, onClose }: { lead: Lead; onClose: () => void })
                 <JalaliDatePicker value={saleDate} onChange={setSaleDate} placeholder="امروز" />
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-500">تاریخ/ساعت واریز:</span>
+                <span className="text-xs text-slate-500">تاریخ واریز:</span>
                 <JalaliDatePicker value={depDate} onChange={setDepDate} placeholder="تاریخ" />
+                <span className="text-xs text-slate-500">ساعت:</span>
                 <input type="time" value={depTime} onChange={(e) => setDepTime(e.target.value)}
                   className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400" dir="ltr" />
               </div>
@@ -832,7 +835,9 @@ function LeadResultModal({ lead, onClose }: { lead: Lead; onClose: () => void })
                 تاریخ و ساعت تماس بعدی <span className="font-normal text-slate-400">(اختیاری)</span>
               </label>
               <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500">تاریخ:</span>
                 <JalaliDatePicker value={nextDate} onChange={setNextDate} placeholder="تاریخ (شمسی)" />
+                <span className="text-xs text-slate-500">ساعت:</span>
                 <input type="time" value={nextTime} onChange={(e) => setNextTime(e.target.value)}
                   className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400" dir="ltr" />
               </div>

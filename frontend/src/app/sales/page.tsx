@@ -575,8 +575,9 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
             <div className="mb-2 text-sm font-medium text-slate-700">اسناد واریز</div>
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-slate-600">۲) تاریخ و ساعت واریز:</span>
+                <span className="text-xs font-medium text-slate-600">۲) تاریخ واریز:</span>
                 <JalaliDatePicker value={depDate} onChange={setDepDate} placeholder="تاریخ (شمسی)" />
+                <span className="text-xs font-medium text-slate-600">ساعت:</span>
                 <input
                   type="time"
                   value={depTime}
