@@ -9,11 +9,11 @@ import { BackButton } from "@/components/BackButton";
 import { CallButton } from "@/components/CallButton";
 import { ContactLinks } from "@/components/ContactLinks";
 import { MessageModal } from "@/components/MessageModal";
-import { faNum, faDate } from "@/lib/utils";
+import { faNum, faDate, faDateTime } from "@/lib/utils";
 import { levelInfo } from "@/lib/loyalty";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmDialog";
-import { User, Phone, MessageSquare, Pencil, Trash2, Loader2, X, GraduationCap, Gift, Copy, Check, Send } from "lucide-react";
+import { User, Phone, MessageSquare, Pencil, Trash2, Loader2, X, GraduationCap, Gift, Copy, Check, Send, ChevronDown } from "lucide-react";
 
 const DEMO = isDemoMode();
 const FIELDS = ["تجربی", "ریاضی", "انسانی", "سایر"];
@@ -292,6 +292,22 @@ function EditModal({ student, onClose }: { student: Student; onClose: () => void
 type LoyaltyAcc = {
   points_balance: number; points_lifetime: number; level: string; referral_code: string | null;
 };
+type LoyaltyTxn = { delta: number; reason: string; created_at: string | null };
+
+/** برچسبِ فارسیِ دلیلِ هر امتیاز (کلیدِ قانون → متنِ خوانا). */
+const REASON_LABEL: Record<string, string> = {
+  call_success: "تماس موفق",
+  call_answered: "پاسخ به تماس",
+  call_missed: "تماس بی‌پاسخ",
+  purchase_points: "خرید",
+  purchase_2nd_bonus: "پاداشِ خریدِ دوم",
+  referral_signup: "معرفیِ دوست",
+  referral_purchase: "خریدِ دوستِ معرفی‌شده",
+};
+function reasonLabel(reason: string): string {
+  if (reason?.startsWith("redeem:")) return "خرجِ پاداش";
+  return REASON_LABEL[reason] ?? reason ?? "—";
+}
 
 function LoyaltyCard({ studentId }: { studentId: string }) {
   const qc = useQueryClient();
@@ -299,12 +315,20 @@ function LoyaltyCard({ studentId }: { studentId: string }) {
   const [refCode, setRefCode] = useState("");
   const [applying, setApplying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const { data, isError } = useQuery<LoyaltyAcc>({
     queryKey: ["loyalty-account", studentId],
     queryFn: async () => (await api.get(`/loyalty/accounts/${studentId}`)).data,
     retry: false,
     enabled: !DEMO,
+  });
+
+  const { data: txns } = useQuery<LoyaltyTxn[]>({
+    queryKey: ["loyalty-txns", studentId],
+    queryFn: async () => (await api.get(`/loyalty/accounts/${studentId}/transactions`)).data.items,
+    retry: false,
+    enabled: !DEMO && showHistory,   // فقط وقتی کاربر تاریخچه را باز کند
   });
 
   // ماژول خاموش/حذف یا دمو → کارت اصلاً نشان داده نمی‌شود.
@@ -382,6 +406,33 @@ function LoyaltyCard({ studentId }: { studentId: string }) {
         >
           {applying ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} اعمال
         </button>
+      </div>
+
+      {/* تاریخچه‌ی امتیاز — جمع‌شونده (تا کارمند ببیند هر امتیاز از کجا آمده) */}
+      <div className="mt-3 border-t border-violet-100 pt-3">
+        <button
+          onClick={() => setShowHistory((v) => !v)}
+          className="flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-700"
+        >
+          <ChevronDown size={15} className={`transition ${showHistory ? "rotate-180" : ""}`} />
+          تاریخچه‌ی امتیاز
+        </button>
+        {showHistory && (
+          <div className="mt-2 space-y-1.5">
+            {(txns ?? []).map((t, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-sm ring-1 ring-slate-100">
+                <span className={`min-w-[3rem] font-bold ${t.delta >= 0 ? "text-emerald-600" : "text-rose-600"}`} dir="ltr">
+                  {t.delta >= 0 ? "+" : ""}{faNum(t.delta)}
+                </span>
+                <span className="flex-1 text-slate-700">{reasonLabel(t.reason)}</span>
+                <span className="text-[11px] text-slate-400">{faDateTime(t.created_at ?? undefined)}</span>
+              </div>
+            ))}
+            {(txns ?? []).length === 0 && (
+              <p className="py-3 text-center text-xs text-slate-400">هنوز امتیازی ثبت نشده.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
