@@ -189,9 +189,9 @@ export default function FollowupsPage() {
                     <div className="font-medium text-slate-700">{f.student_name}</div>
                     <div className="text-xs text-slate-400" dir="ltr">{f.mobile || "—"}</div>
                   </td>
-                  <td className="p-3.5 text-slate-600" dir="ltr">{f.registered}</td>
+                  <td className="p-3.5 text-slate-600">{f.registered}</td>
                   <td className="p-3.5">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600" dir="ltr">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600">
                       <CalendarClock size={12} /> {f.nextCall}
                     </span>
                   </td>
