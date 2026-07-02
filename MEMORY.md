@@ -413,6 +413,17 @@ docs/     → ۱۲ سند معماری فارسی
     - `lib/loyalty.ts`: `levelInfo` (برچسب/ایموجی/رنگِ سطوح). tsc/build پاس ✅ (روتِ `/club` ساخته شد).
     ⚠️ چون `LOYALTY_ENABLED` روی VPS هنوز خاموش است، این بخش‌ها فعلاً پنهان‌اند تا کاربر روشنش کند.
 
+48. **باشگاه مشتریان — اتوماسیونِ امتیازدهی (scanِ خودکار)** —
+    کاربر خواست امتیازدهی خودکار شود (کارمند دستی نزند). چون Celery-beat نبود و افزودنش =
+    دست‌زدن به docker-compose، به‌جایش **حلقه‌ی سبک در `lifespan` اپ**:
+    - `loyalty/application/scheduler.py`: `scan_loop` هر `loyalty_scan_interval` (پیش‌فرض ۳۰۰ث)
+      `Projection.scan()` را اجرا می‌کند، با **قفلِ Redis** (`loyalty:scan:lock`) تا با ۲ workerِ
+      gunicorn دوباره اجرا نشود. نبودِ Redis → بی‌صدا رد (scan idempotent است).
+    - `app/main.py` lifespan: اگر `loyalty_enabled` → `asyncio.create_task(scan_loop())` با
+      گارد+try/except (خاموش/حذف اپ را نمی‌شکند)؛ در shutdown cancel می‌شود.
+    - setting جدید `loyalty_scan_interval`. ۴۳ تست سبز؛ اپ با loyalty روشن سالم بالا می‌آید.
+    ⚠️ فقط جدیدها را امتیاز می‌دهد؛ برای قدیمی‌ها یک‌بار scanِ دستی لازم است (کاربر گفت بی‌خیالِ قدیمی‌ها).
+
 **کامپوننت‌های فرانت کلیدی:** StatCard, ChartCard, CallButton, ScoreLegend,
 BackButton, Sidebar, ContactLinks, Pagination, ExportButton/ExportAllButton, JalaliDatePicker.
 **نکته:** این یک وب‌اپ ریسپانسیو (PWA قابل‌نصب) است، نه اپ نیتیو.

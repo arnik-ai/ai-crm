@@ -1,4 +1,5 @@
 """نقطه‌ی ورود FastAPI — ثبت Routerها، Middleware و Exception handlerها."""
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -24,8 +25,18 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # نقطه‌ی راه‌اندازی/خاموشی منابع (Redis pool, ...) در صورت نیاز
+    # اتوماسیونِ اختیاریِ باشگاه مشتریان: حلقه‌ی خودکارِ امتیازدهی (scan) هر چند دقیقه.
+    # گارد + try/except: خاموش/حذف‌شدنِ ماژول، اپ را نمی‌شکند. (docs/12-LOYALTY-CLUB.md)
+    bg_tasks: list = []
+    if settings.loyalty_enabled:
+        try:
+            from src.modules.loyalty.application.scheduler import scan_loop
+            bg_tasks.append(asyncio.create_task(scan_loop()))
+        except Exception:  # noqa: BLE001 — ماژولِ loyalty اختیاری است
+            pass
     yield
+    for t in bg_tasks:
+        t.cancel()
 
 
 app = FastAPI(

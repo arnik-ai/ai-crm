@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     # روشن‌کردن: LOYALTY_ENABLED=true. خاموش‌بودن، routerها را ثبت نمی‌کند و
     # projection را اجرا نمی‌کند (کاملاً بی‌اثر). حذفِ کاملِ ماژول: docs/12-LOYALTY-CLUB.md.
     loyalty_enabled: bool = False
+    loyalty_scan_interval: int = 300  # ثانیه — هر چند وقت scanِ خودکارِ امتیازدهی اجرا شود
 
     @property
     def cors_origin_list(self) -> list[str]:
