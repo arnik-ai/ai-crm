@@ -903,6 +903,7 @@ export default function ReportsPage() {
                       )}
                       <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
                         <div className="font-medium text-slate-700">{p.product}</div>
+                        <div className="font-bold text-emerald-600">{faNum(Math.round(p.amount).toLocaleString("en-US"))} تومان</div>
                         <div className="text-slate-400">{faDateTime(p.sold_at ?? undefined)}</div>
                       </div>
                     </div>

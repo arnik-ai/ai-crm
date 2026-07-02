@@ -13,7 +13,7 @@ import { useToast } from "@/components/Toast";
 import type { ExcelColumn } from "@/lib/exportExcel";
 import { isDemoMode } from "@/lib/auth";
 import { faNum, faDateTime, faDigits, faDate } from "@/lib/utils";
-import { Search, ShoppingCart, Receipt, CreditCard, CalendarRange, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Search, ShoppingCart, Receipt, CreditCard, CalendarRange, Plus, X, Loader2, Pencil, Trash2, ChevronDown } from "lucide-react";
 
 const DEMO = isDemoMode();
 const PROGRAM = "برنامه";
@@ -87,6 +87,17 @@ function thousandsToToman(entered: string | number): number {
 function productsText(s: Sale): string {
   if (s.items?.length) return s.items.map((it) => it.product).join("، ");
   return s.product ?? "";
+}
+
+/** تاریخِ امروز (ISO میلادی) و ساعتِ اکنون (HH:MM) — پیش‌فرضِ فرمِ فیش تا آنچه
+ *  کاربر می‌بیند دقیقاً همان چیزی باشد که ذخیره می‌شود (نه پیش‌فرضِ نامرئیِ سرور). */
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function nowHm(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 const EXCEL_COLUMNS: ExcelColumn<Sale>[] = [
@@ -400,8 +411,9 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
 
   const [studentName, setStudentName] = useState(sale?.student_name ?? "");
   const [mobile, setMobile] = useState(sale?.mobile ?? "");
-  // تاریخ فروش (بخشِ تاریخِ ISO؛ پیکر شمسی نمایش می‌دهد)
-  const [saleDate, setSaleDate] = useState(sale?.date ? sale.date.slice(0, 10) : "");
+  // تاریخِ فیش (ISO؛ پیکر شمسی نمایش می‌دهد). برای فیشِ جدید، پیش‌فرض = امروز/اکنون
+  // تا آنچه دیده می‌شود همان ذخیره شود (رفعِ ابهامِ «سیستم تاریخِ لحظه‌ی ثبت را می‌زد»).
+  const [saleDate, setSaleDate] = useState(sale?.date ? sale.date.slice(0, 10) : todayIso());
   // محصولاتِ انتخاب‌شده با تیک: کلید=نام محصول، مقدار={مدت}
   const [sel, setSel] = useState<Record<string, { months: number | "" }>>(
     sale?.items?.length
@@ -409,8 +421,10 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
       : {}
   );
   const [payAmount, setPayAmount] = useState(sale ? String(Math.round((sale.amount || 0) / 1000)) : "");
-  // تاریخِ فیش یک‌بار پرسیده می‌شود (تاریخ فروش = تاریخ واریز)؛ ساعت جدا.
-  const [saleTime, setSaleTime] = useState(sale?.date ? sale.date.slice(11, 16) : "");
+  // تاریخِ فیش یک‌بار پرسیده می‌شود (تاریخ فروش = تاریخ واریز)؛ ساعت جدا (پیش‌فرض اکنون).
+  const [saleTime, setSaleTime] = useState(sale?.date ? sale.date.slice(11, 16) : nowHm());
+  // بازشدن/بستنِ کشویِ محصولات (کاربر بتواند ببندد)
+  const [productsOpen, setProductsOpen] = useState(true);
   const [payerCard, setPayerCard] = useState(sale?.payer_card ?? "");
   const [destAccount, setDestAccount] = useState(sale?.dest_account ?? "");
   const [paymentRef, setPaymentRef] = useState(sale?.payment_ref ?? "");
@@ -443,10 +457,14 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    // اعتبارسنجیِ صریح با پیامِ فارسیِ روشن (به‌جای اتکا به required مرورگر که پیامِ
+    // نامفهوم می‌دهد و کاربر نمی‌فهمد کدام فیلد را پر نکرده).
+    if (!studentName.trim()) { setError("نام و نام خانوادگی را وارد کنید."); return; }
+    if (mobile.replace(/\D/g, "").length < 8) { setError("شماره‌ی موبایل را کامل وارد کنید."); return; }
     const picked = Object.entries(sel);
-    if (picked.length === 0) { setError("حداقل یک محصول را تیک بزنید."); return; }
+    if (picked.length === 0) { setError("حداقل یک محصول را تیک بزنید."); setProductsOpen(true); return; }
     for (const [product, v] of picked) {
-      if (product === PROGRAM && !v.months) { setError("برای «برنامه»، مدت (ماه) را انتخاب کنید."); return; }
+      if (product === PROGRAM && !v.months) { setError("برای «برنامه»، مدت (ماه) را انتخاب کنید."); setProductsOpen(true); return; }
     }
     if (!payAmount || Number(payAmount) <= 0) { setError("مبلغِ واریز را وارد کنید."); return; }
     setLoading(true);
@@ -504,7 +522,6 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
             value={studentName}
             onChange={(e) => setStudentName(e.target.value)}
             className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-            required
           />
           <input
             type="tel"
@@ -514,7 +531,6 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
             onBlur={onMobileBlur}
             className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
             dir="ltr"
-            required
           />
           {/* مشتریِ تکراری: پیام «دوباره فروختی» + خرید قبلی */}
           {lookup?.exists && (
@@ -540,12 +556,33 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
             <span className="w-full text-[11px] text-slate-400">تاریخِ فروش/واریز (خالی = امروز)</span>
           </div>
 
-          {/* محصولات — هر چند محصول را تیک بزن (بدون قیمتِ جداگانه) */}
+          {/* محصولات — کشویی: باز/بسته می‌شود؛ هر چند محصول را تیک بزن */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-            <div className="mb-2 text-sm font-medium text-slate-700">
-              محصولات خریداری‌شده <span className="text-xs font-normal text-slate-400">(هر تعداد که خواستی تیک بزن)</span>
-            </div>
-            <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => setProductsOpen((o) => !o)}
+              className="flex w-full items-center justify-between gap-2 text-sm font-medium text-slate-700"
+            >
+              <span>
+                محصولات خریداری‌شده
+                {Object.keys(sel).length > 0
+                  ? <span className="mr-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">{faNum(Object.keys(sel).length)} انتخاب</span>
+                  : <span className="mr-1 text-xs font-normal text-slate-400">(برای انتخاب باز کن)</span>}
+              </span>
+              <ChevronDown size={18} className={`shrink-0 text-slate-400 transition ${productsOpen ? "rotate-180" : ""}`} />
+            </button>
+            {/* خلاصه‌ی انتخاب‌ها وقتی بسته است */}
+            {!productsOpen && Object.keys(sel).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {Object.keys(sel).map((p) => (
+                  <span key={p} className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                    {p}{p === PROGRAM && sel[p].months ? ` · ${faNum(Number(sel[p].months))} ماه` : ""}
+                  </span>
+                ))}
+              </div>
+            )}
+            {productsOpen && (
+            <div className="mt-2 space-y-1.5">
               {(meta?.products ?? []).map((p) => {
                 const picked = !!sel[p];
                 return (
@@ -576,6 +613,7 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
                 );
               })}
             </div>
+            )}
           </div>
 
           {/* مبلغِ واریز — یک مبلغ برای کلِ فیش */}
@@ -589,7 +627,6 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
               className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-emerald-400"
               dir="ltr"
               min={0}
-              required
             />
             {Number(payAmount) > 0 && (
               <div className="mt-1 text-xs text-emerald-600">
@@ -625,9 +662,9 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
             </div>
           </div>
 
-          {error && <div className="text-sm text-rose-600">{error}</div>}
-          {/* دکمه‌ی ثبتِ چسبان به پایینِ مودال */}
+          {/* دکمه‌ی ثبتِ چسبان به پایینِ مودال — پیامِ خطا همین‌جا (همیشه دیده می‌شود) */}
           <div className="sticky bottom-0 -mx-6 -mb-6 border-t border-slate-100 bg-white px-6 py-3">
+            {error && <div className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600">{error}</div>}
             <button
               disabled={loading}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"

@@ -260,7 +260,8 @@ class DashboardService:
             .order_by(Followup.due_at)
         )
         followups = [
-            {"id": str(fu.id), "student_name": name or mobile, "mobile": mobile,
+            {"id": str(fu.id), "student_id": str(fu.student_id),
+             "student_name": name or mobile, "mobile": mobile,
              "due_at": fu.due_at.isoformat(), "note": fu.note}
             for fu, name, mobile in fu_rows
         ]

@@ -21,6 +21,7 @@ const DEMO = isDemoMode();
 
 type TaskItem = {
   id: string;
+  student_id?: string | null;   // برای بازکردنِ مودالِ ثبتِ نتیجه (پیگیری‌ها)
   student_name: string | null;
   mobile: string | null;
   due_at?: string | null;
@@ -67,6 +68,8 @@ export default function TasksPage() {
   const missed = data?.missed_calls ?? [];
   const renewals = data?.renewal_reminders ?? [];
   const totalTasks = followups.length + pending.length;
+  // مودالِ ثبتِ نتیجه از روی «پیگیری‌های امروز» (کلیک روی اسم)
+  const [fuResult, setFuResult] = useState<Lead | null>(null);
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -111,6 +114,11 @@ export default function TasksPage() {
             items={followups}
             timeField="due_at"
             showNote
+            onItemClick={(t) =>
+              t.student_id && setFuResult({
+                id: t.student_id, full_name: t.student_name, mobile: t.mobile ?? "",
+              })
+            }
           />
           {/* تماس‌های بدون اقدام */}
           <Section
@@ -134,17 +142,23 @@ export default function TasksPage() {
             timeField="started_at"
           />
         </div>
+
+        {/* ثبتِ نتیجه از روی «پیگیری‌های امروز» */}
+        {fuResult && (
+          <LeadResultModal lead={fuResult} onClose={() => setFuResult(null)} />
+        )}
       </main>
     </div>
   );
 }
 
 function Section({
-  title, icon, count, tone, empty, items, timeField, showNote, hint,
+  title, icon, count, tone, empty, items, timeField, showNote, hint, onItemClick,
 }: {
   title: string; icon: React.ReactNode; count: number; tone: string;
   empty: string; items: TaskItem[]; timeField: "due_at" | "started_at";
   showNote?: boolean; hint?: string;
+  onItemClick?: (t: TaskItem) => void;
 }) {
   return (
     <div className={`rounded-2xl border bg-white p-4 shadow-sm ${tone}`}>
@@ -157,21 +171,37 @@ function Section({
       </div>
       {hint && <p className="mb-2 text-xs text-slate-400">{hint}</p>}
       <div className="space-y-2">
-        {items.map((t) => (
-          <div key={t.id} className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-slate-700">
-                {t.student_name || "ناشناس"}
+        {items.map((t) => {
+          const clickable = !!(onItemClick && t.student_id);
+          return (
+            <div
+              key={t.id}
+              onClick={clickable ? () => onItemClick!(t) : undefined}
+              className={`flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 ${
+                clickable ? "cursor-pointer transition hover:bg-blue-50" : ""
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-slate-700">
+                  {t.student_name || "ناشناس"}
+                  {clickable && (
+                    <span className="mr-1 text-[10px] font-normal text-emerald-600">← برای ثبت نتیجه بزن</span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-400" dir="ltr">{t.mobile || "—"}</div>
+                {showNote && t.note && (
+                  <div className="mt-0.5 truncate text-xs text-slate-500">{t.note}</div>
+                )}
+                <div className="text-[11px] text-slate-400">{faDateTime(t[timeField] ?? undefined)}</div>
               </div>
-              <div className="text-xs text-slate-400" dir="ltr">{t.mobile || "—"}</div>
-              {showNote && t.note && (
-                <div className="mt-0.5 truncate text-xs text-slate-500">{t.note}</div>
+              {t.mobile && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <CallButton mobile={t.mobile} size="sm" />
+                </div>
               )}
-              <div className="text-[11px] text-slate-400">{faDateTime(t[timeField] ?? undefined)}</div>
             </div>
-            {t.mobile && <CallButton mobile={t.mobile} size="sm" />}
-          </div>
-        ))}
+          );
+        })}
         {items.length === 0 && (
           <p className="py-6 text-center text-xs text-slate-400">{empty}</p>
         )}
