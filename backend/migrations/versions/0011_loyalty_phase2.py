@@ -67,7 +67,8 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS ix_loyalty_referrals_referred ON loyalty_referrals(referred_student_id)")
 
     # --- seed: پاداش‌های پیش‌فرض (مطابقِ سند) ---
-    op.execute("""
+    # exec_driver_sql: JSON شاملِ «:عدد» است؛ op.execute آن را bind-param می‌بیند و کرش می‌کند.
+    op.get_bind().exec_driver_sql("""
         INSERT INTO loyalty_rewards (key, title, cost_points, type, payload, min_level) VALUES
           ('free_session',  'یک جلسه مشاوره رایگان', 1000, 'free_session',  NULL,              NULL),
           ('discount_10',   '۱۰٪ تخفیف دوره بعدی',   1500, 'discount',      '{"percent":10}'::jsonb, NULL),

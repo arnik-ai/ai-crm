@@ -104,7 +104,10 @@ def upgrade() -> None:
     """)
 
     # --- seed: سطوح (Bronze/Silver/Gold/Platinum) ---
-    op.execute("""
+    # ⚠️ exec_driver_sql (نه op.execute): چون JSON شاملِ «:عدد» است و op.execute آن را
+    # به‌اشتباه bind-parameter می‌بیند و کرش می‌کند. exec_driver_sql پارامتر پارس نمی‌کند.
+    bind = op.get_bind()
+    bind.exec_driver_sql("""
         INSERT INTO loyalty_levels (key, title, min_points, order_index, benefits) VALUES
           ('bronze',   'برنزی',   0,    1, '[{"type":"discount","value":0}]'::jsonb),
           ('silver',   'نقره‌ای', 500,  2, '[{"type":"discount","value":5},{"type":"priority_support"}]'::jsonb),
@@ -114,7 +117,7 @@ def upgrade() -> None:
     """)
 
     # --- seed: قوانینِ پایه (compute ساختاریافته و قطعی — نه فرمولِ آزاد) ---
-    op.execute("""
+    bind.exec_driver_sql("""
         INSERT INTO loyalty_rules (key, event_type, definition, priority) VALUES
           ('call_success', 'call.completed',
            '{"when":[{"field":"outcome","op":"in","value":["successful","purchased"]}],"compute":{"type":"fixed","points":10}}'::jsonb, 100),
