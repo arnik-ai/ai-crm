@@ -294,7 +294,10 @@ function RenewalReminders({ items }: { items: RenewalItem[] }) {
         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
           {faNum(items.length)}
         </span>
-        <ChevronDown size={16} className={`mr-auto text-amber-500 transition ${open ? "rotate-180" : ""}`} />
+        {/* فلشِ جمع‌شونده — بزرگ و چشمگیر داخلِ دایره‌ی رنگی */}
+        <span className={`mr-auto flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm transition ${open ? "rotate-180" : ""}`}>
+          <ChevronDown size={22} strokeWidth={2.75} />
+        </span>
       </button>
       {open && (
         <div className="mt-3 space-y-2">
@@ -364,7 +367,10 @@ function IncompleteNag() {
           <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
             {faNum(items.length)}
           </span>
-          <ChevronDown size={16} className={`text-rose-400 transition ${open ? "rotate-180" : ""}`} />
+          {/* فلشِ جمع‌شونده — بزرگ و چشمگیر داخلِ دایره‌ی رنگی */}
+          <span className={`flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition ${open ? "rotate-180" : ""}`}>
+            <ChevronDown size={22} strokeWidth={2.75} />
+          </span>
         </button>
         <Link
           href="/students"
