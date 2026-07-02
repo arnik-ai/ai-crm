@@ -1,9 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
 import { getSession } from "@/lib/auth";
-import { ShieldCheck, Crown, UserCog, Headset, Eye, Check, X as XIcon } from "lucide-react";
+import { api } from "@/lib/api";
+import { faNum } from "@/lib/utils";
+import { ShieldCheck, Crown, UserCog, Headset, Eye, Check, X as XIcon, Gift } from "lucide-react";
 
 // نقش‌ها و توانایی‌هایشان — هم‌خوان با seed.py (ROLE_PERMS).
 const ROLES = [
@@ -209,7 +212,106 @@ export default function GuidePage() {
         <p className="mt-4 text-center text-xs text-slate-400">
           تصمیمِ نهاییِ دسترسی همیشه در سرور گرفته می‌شود؛ این صفحه فقط راهنماست.
         </p>
+
+        {/* راهنمای باشگاه مشتریان — فقط اگر ماژول روشن باشد نشان داده می‌شود */}
+        <LoyaltyGuide />
       </main>
+    </div>
+  );
+}
+
+/* ---------- راهنمای امتیازها و پاداش‌های باشگاه (خودپنهان‌شونده) ---------- */
+const EARN_ROWS: { action: string; points: string }[] = [
+  { action: "ثبتِ تماس موفق (فروش/نتیجه‌ی موفق)", points: "+۱۰" },
+  { action: "پاسخ به تماس", points: "+۵" },
+  { action: "تماس بی‌پاسخ", points: "−۵" },
+  { action: "خریدِ دوره/برنامه", points: "+۱۰ به‌ازای هر ۱۰۰٬۰۰۰ تومان (تا سقفِ ۱۰۰۰)" },
+  { action: "خریدِ دوم به بعد", points: "+۲۰۰ پاداش" },
+  { action: "معرفیِ دوستِ جدید (با کدِ دعوت)", points: "+۳۰۰ برای معرف" },
+  { action: "خریدِ دوستِ معرفی‌شده", points: "+۵۰۰ برای معرف" },
+];
+const LEVEL_ROWS: { name: string; from: string; benefit: string }[] = [
+  { name: "🥉 برنزی", from: "۰", benefit: "شروع" },
+  { name: "🥈 نقره‌ای", from: "۵۰۰", benefit: "۵٪ تخفیف + اولویت در مشاوره" },
+  { name: "🥇 طلایی", from: "۱۵۰۰", benefit: "۱۰٪ تخفیف + جلسه‌ی رایگان" },
+  { name: "💎 پلاتینی", from: "۳۰۰۰", benefit: "۱۵٪ تخفیف + دوره‌ی رایگان" },
+];
+const REWARD_ROWS: { points: string; reward: string }[] = [
+  { points: "۱۰۰۰", reward: "یک جلسه مشاوره رایگان" },
+  { points: "۱۵۰۰", reward: "۱۰٪ تخفیفِ دوره‌ی بعدی" },
+  { points: "۲۰۰۰", reward: "کلاس خصوصی رایگان (طلایی به بالا)" },
+  { points: "۳۰۰۰", reward: "یک دوره رایگان (طلایی به بالا)" },
+];
+
+function LoyaltyGuide() {
+  const { data, isError } = useQuery({
+    queryKey: ["loyalty-guide-enabled"],
+    queryFn: async () => { await api.get("/loyalty/levels"); return true; },
+    retry: false,
+  });
+  if (isError || !data) return null; // باشگاه خاموش/حذف → این بخش دیده نمی‌شود
+
+  return (
+    <div className="mt-8 space-y-4">
+      <div className="flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-200">
+          <Gift size={18} />
+        </div>
+        <h2 className="text-lg font-extrabold text-white">باشگاه مشتریان — امتیازها بر چه حسابی است؟</h2>
+      </div>
+
+      {/* چطور امتیاز کسب می‌شود */}
+      <div className="overflow-x-auto rounded-2xl border border-violet-100 bg-white shadow-sm">
+        <div className="border-b border-slate-100 p-4"><span className="font-bold text-slate-800">امتیازها چطور کسب می‌شوند؟</span></div>
+        <table className="w-full min-w-[420px] text-sm">
+          <tbody>
+            {EARN_ROWS.map((r, i) => (
+              <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                <td className="p-3 text-slate-700">{r.action}</td>
+                <td className="whitespace-nowrap p-3 text-left font-bold text-violet-600" dir="ltr">{r.points}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* سطوح */}
+      <div className="overflow-x-auto rounded-2xl border border-indigo-100 bg-white shadow-sm">
+        <div className="border-b border-slate-100 p-4"><span className="font-bold text-slate-800">سطوح (بر اساسِ کلِ امتیازِ کسب‌شده)</span></div>
+        <table className="w-full min-w-[420px] text-sm">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr><th className="p-3 text-right font-medium">سطح</th><th className="p-3 text-right font-medium">از چند امتیاز</th><th className="p-3 text-right font-medium">مزایا</th></tr>
+          </thead>
+          <tbody>
+            {LEVEL_ROWS.map((r, i) => (
+              <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                <td className="p-3 font-bold text-slate-700">{r.name}</td>
+                <td className="p-3 text-slate-600">{r.from}</td>
+                <td className="p-3 text-slate-500">{r.benefit}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* پاداش‌ها */}
+      <div className="overflow-x-auto rounded-2xl border border-emerald-100 bg-white shadow-sm">
+        <div className="border-b border-slate-100 p-4"><span className="font-bold text-slate-800">پاداش‌ها (خرجِ امتیاز)</span></div>
+        <table className="w-full min-w-[420px] text-sm">
+          <tbody>
+            {REWARD_ROWS.map((r, i) => (
+              <tr key={i} className={`border-t border-slate-100 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                <td className="whitespace-nowrap p-3 font-bold text-emerald-600">{faNum(Number(r.points.replace(/[^\d]/g, "")))} امتیاز</td>
+                <td className="p-3 text-slate-700">{r.reward}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-center text-xs text-slate-400">
+        امتیازدهی خودکار و قطعی است (بر اساسِ همین جدول‌ها)؛ هر امتیاز در «تاریخچه‌ی امتیازِ» هر دانش‌آموز قابل‌مشاهده است.
+      </p>
     </div>
   );
 }
