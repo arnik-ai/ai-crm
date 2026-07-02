@@ -256,11 +256,18 @@ async def sales_meta(
 async def list_sales(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    date_from: date | None = None,
+    date_to: date | None = None,
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("students:read")),
 ) -> dict:
-    """لیست فروش‌های ثبت‌شده (فیش‌ها)."""
-    return await SalesService(session).list_sales(page, size)
+    """لیست فروش‌ها با فیلترِ اختیاریِ بازه‌ی تاریخ (بر اساس sold_at). date_to شاملِ کلِ روز."""
+    from datetime import timedelta
+    to_dt = _day_start(date_to)
+    if to_dt is not None:
+        to_dt = to_dt + timedelta(days=1)
+    return await SalesService(session).list_sales(
+        page, size, _day_start(date_from), to_dt)
 
 
 @router.post("/sales", status_code=201)
@@ -320,14 +327,20 @@ async def sales_repeat_customers(
 
 @router.get("/sales/export")
 async def export_sales(
+    date_from: date | None = None,
+    date_to: date | None = None,
     session: AsyncSession = Depends(get_session),
     user=Depends(require_permission("students:read")),
 ):
-    """خروجی اکسل کاملِ فروش (استریم‌شده)."""
+    """خروجی اکسلِ فروش (استریم‌شده) با فیلترِ اختیاریِ بازه‌ی تاریخ (بر اساس sold_at)."""
+    from datetime import timedelta
+    to_dt = _day_start(date_to)
+    if to_dt is not None:
+        to_dt = to_dt + timedelta(days=1)
     svc = SalesService(session)
     return await stream_csv_response(
         session,
-        svc.export_sales_query(),
+        svc.export_sales_query(_day_start(date_from), to_dt),
         headers=["نام مشتری", "موبایل", "تاریخ", "محصول", "مدت (ماه)",
                  "مبلغ کل (تومان)", "کارت واریزکننده", "بانک مقصد", "جزئیات واریز"],
         row_mapper=lambda r: [r.student_name, r.mobile, r.sold_at, r.product,

@@ -104,10 +104,15 @@ const EXCEL_COLUMNS: ExcelColumn<Sale>[] = [
 export default function SalesPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  // فیلترِ بازه‌ی تاریخ (ISO میلادی از JalaliDatePicker) — هم برای بررسی، هم خروجی
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const dateQs =
+    `${dateFrom ? `&date_from=${dateFrom}` : ""}${dateTo ? `&date_to=${dateTo}` : ""}`;
   const { data } = useQuery<SalesResponse>({
-    queryKey: ["sales", page],
+    queryKey: ["sales", page, dateFrom, dateTo],
     queryFn: async () =>
-      (await api.get(`/sales?page=${page}&size=${PAGE_SIZE}`)).data,
+      (await api.get(`/sales?page=${page}&size=${PAGE_SIZE}${dateQs}`)).data,
     placeholderData: (prev) => prev,
   });
 
@@ -161,7 +166,10 @@ export default function SalesPage() {
                   <Plus size={16} /> ثبت فیش
                 </button>
                 <ExportButton rows={items} columns={EXCEL_COLUMNS} filename="لیست-فروش" />
-                <ExportAllButton endpoint="/sales/export" filename="همه-فروش" />
+                <ExportAllButton
+                  endpoint={`/sales/export${dateFrom || dateTo ? `?${dateQs.replace(/^&/, "")}` : ""}`}
+                  filename="همه-فروش"
+                />
               </>
             )}
             <BackButton dark />
@@ -216,7 +224,7 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* نوار جستجو */}
+        {/* نوار جستجو + فیلترِ بازه‌ی تاریخ */}
         <div className="panel-toolbar mb-4 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 sm:max-w-xs">
             <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -226,6 +234,22 @@ export default function SalesPage() {
               placeholder="جستجوی نام، موبایل یا محصول…"
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pr-9 pl-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
             />
+          </div>
+          {/* بازه‌ی تاریخ — روی لیست و خروجی هر دو اعمال می‌شود */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">از تاریخ:</span>
+            <JalaliDatePicker value={dateFrom} onChange={(v) => { setDateFrom(v); setPage(1); }} placeholder="ابتدا" />
+            <span className="text-xs font-medium text-slate-500">تا:</span>
+            <JalaliDatePicker value={dateTo} onChange={(v) => { setDateTo(v); setPage(1); }} placeholder="انتها" />
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => { setDateFrom(""); setDateTo(""); setPage(1); }}
+                className="rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100"
+              >
+                پاک کردن بازه
+              </button>
+            )}
           </div>
         </div>
 
@@ -385,8 +409,8 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
       : {}
   );
   const [payAmount, setPayAmount] = useState(sale ? String(Math.round((sale.amount || 0) / 1000)) : "");
-  const [depDate, setDepDate] = useState(sale?.deposited_at ? sale.deposited_at.slice(0, 10) : "");
-  const [depTime, setDepTime] = useState(sale?.deposited_at ? sale.deposited_at.slice(11, 16) : "");
+  // تاریخِ فیش یک‌بار پرسیده می‌شود (تاریخ فروش = تاریخ واریز)؛ ساعت جدا.
+  const [saleTime, setSaleTime] = useState(sale?.date ? sale.date.slice(11, 16) : "");
   const [payerCard, setPayerCard] = useState(sale?.payer_card ?? "");
   const [destAccount, setDestAccount] = useState(sale?.dest_account ?? "");
   const [paymentRef, setPaymentRef] = useState(sale?.payment_ref ?? "");
@@ -432,20 +456,21 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
         onClose();
         return;
       }
-      const depositedAt = depDate
-        ? new Date(`${depDate}T${depTime || "00:00"}`).toISOString()
+      // یک تاریخ برای کلِ فیش (فروش = واریز). ساعتِ پیش‌فرض ۱۲ ظهر تا با اختلافِ
+      // منطقه‌ی زمانی، روزِ فروش عوض نشود.
+      const soldAtIso = saleDate
+        ? new Date(`${saleDate}T${saleTime || "12:00"}`).toISOString()
         : null;
       const payload = {
         student_name: studentName,
         mobile,
-        // ساعت ۱۲ ظهر تا با جابه‌جاییِ منطقه‌ی زمانی، روزِ فروش تغییر نکند
-        sold_at: saleDate ? new Date(`${saleDate}T12:00`).toISOString() : null,
+        sold_at: soldAtIso,
         items: picked.map(([product, v]) => ({
           product,
           program_months: product === PROGRAM ? v.months : null,
         })),
         amount: thousandsToToman(payAmount),
-        deposited_at: depositedAt,
+        deposited_at: soldAtIso,
         payer_card: payerCard || null,
         dest_account: destAccount || null,
         payment_ref: paymentRef || null,
@@ -505,11 +530,14 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
               )}
             </div>
           )}
-          {/* تاریخ فروش (اختیاری — خالی = امروز) */}
+          {/* تاریخِ فیش — یک‌بار (تاریخ + ساعت). خالی = امروز. */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-slate-600">۱) تاریخ فروش:</span>
+            <span className="text-xs font-medium text-slate-600">تاریخ فیش:</span>
             <JalaliDatePicker value={saleDate} onChange={setSaleDate} placeholder="امروز" />
-            <span className="w-full text-[11px] text-slate-400 sm:w-auto">روزی که فروش قطعی شد (پیش‌فرض: امروز)</span>
+            <span className="text-xs font-medium text-slate-600">ساعت:</span>
+            <input type="time" value={saleTime} onChange={(e) => setSaleTime(e.target.value)}
+              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400" dir="ltr" />
+            <span className="w-full text-[11px] text-slate-400">تاریخِ فروش/واریز (خالی = امروز)</span>
           </div>
 
           {/* محصولات — هر چند محصول را تیک بزن (بدون قیمتِ جداگانه) */}
@@ -574,19 +602,6 @@ function AddSaleModal({ sale, onClose, onAdded }: { sale?: Sale; onClose: () => 
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
             <div className="mb-2 text-sm font-medium text-slate-700">اسناد واریز</div>
             <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-slate-600">۲) تاریخ واریز:</span>
-                <JalaliDatePicker value={depDate} onChange={setDepDate} placeholder="تاریخ (شمسی)" />
-                <span className="text-xs font-medium text-slate-600">ساعت:</span>
-                <input
-                  type="time"
-                  value={depTime}
-                  onChange={(e) => setDepTime(e.target.value)}
-                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
-                  dir="ltr"
-                />
-                <span className="w-full text-[11px] text-slate-400">زمانی که پول به حساب واریز شد (می‌تواند با تاریخ فروش فرق کند)</span>
-              </div>
               <input
                 placeholder="کارت واریزکننده"
                 value={payerCard}

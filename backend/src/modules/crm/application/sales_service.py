@@ -154,13 +154,21 @@ class SalesService:
         await self._s.commit()
         return {"status": "deleted"}
 
-    async def list_sales(self, page: int, size: int) -> dict:
-        stmt = select(Sale).order_by(Sale.sold_at.desc())
+    async def list_sales(self, page: int, size: int,
+                         date_from=None, date_to=None) -> dict:
+        # فیلترِ اختیاریِ بازه‌ی تاریخ (بر اساس sold_at) — روی لیست و همه‌ی جمع‌ها اعمال می‌شود.
+        conds = []
+        if date_from is not None:
+            conds.append(Sale.sold_at >= date_from)
+        if date_to is not None:
+            conds.append(Sale.sold_at < date_to)
+
+        stmt = select(Sale).where(*conds).order_by(Sale.sold_at.desc())
         total_count = await self._s.scalar(
             select(func.count()).select_from(stmt.subquery())
         ) or 0
         total_amount = await self._s.scalar(
-            select(func.coalesce(func.sum(Sale.amount), 0))
+            select(func.coalesce(func.sum(Sale.amount), 0)).where(*conds)
         ) or 0
         # جمع تفکیکی در سطحِ فیش (یک مبلغِ کل): اگر فیش شاملِ «برنامه» باشد →
         # جمعِ «برنامه»؛ وگرنه → «دوره». (مبلغ روی کلِ فیش است، نه تک‌تکِ محصولات.)
@@ -171,10 +179,12 @@ class SalesService:
             .exists()
         )
         total_program = await self._s.scalar(
-            select(func.coalesce(func.sum(Sale.amount), 0)).where(has_program)
+            select(func.coalesce(func.sum(Sale.amount), 0))
+            .where(*conds).where(has_program)
         ) or 0
         total_other = await self._s.scalar(
-            select(func.coalesce(func.sum(Sale.amount), 0)).where(~has_program)
+            select(func.coalesce(func.sum(Sale.amount), 0))
+            .where(*conds).where(~has_program)
         ) or 0
         rows = (await self._s.execute(
             stmt.offset((page - 1) * size).limit(size)
@@ -210,13 +220,18 @@ class SalesService:
             "size": size,
         }
 
-    def export_sales_query(self):
-        """کوئری همه‌ی فروش‌ها برای خروجی استریم‌شده (سطحِ فیش؛ مبلغ = جمع آیتم‌ها)."""
-        return select(
+    def export_sales_query(self, date_from=None, date_to=None):
+        """کوئری فروش‌ها برای خروجی استریم‌شده، با فیلترِ اختیاریِ بازه‌ی تاریخ (sold_at)."""
+        stmt = select(
             Sale.student_name, Sale.mobile, Sale.sold_at, Sale.product,
             Sale.program_months, Sale.amount, Sale.payer_card,
             Sale.dest_account, Sale.payment_ref,
-        ).order_by(Sale.sold_at.desc())
+        )
+        if date_from is not None:
+            stmt = stmt.where(Sale.sold_at >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(Sale.sold_at < date_to)
+        return stmt.order_by(Sale.sold_at.desc())
 
     async def purchase_timeline(self, page: int = 1, size: int = 50) -> dict:
         """تایم‌لاینِ ورود→تماس→خرید برای هر فروش (صفحه‌بندی‌شده).
