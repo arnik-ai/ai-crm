@@ -2,8 +2,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, UserCog, ClipboardList, ShieldCheck, Menu, X, LogOut } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { LayoutDashboard, Users, Phone, Bot, BarChart3, ShoppingCart, ListTodo, UserCog, ClipboardList, ShieldCheck, Menu, X, LogOut, Gift } from "lucide-react";
 import { getSession, isManager, isAuthenticated, logout, type SessionInfo } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 // managerOnly: فقط مدیر فروش/ادمین می‌بیند (پنل مدیر فروش).
 const items = [
@@ -61,7 +63,19 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   }, []);
 
   const manager = session ? isManager(session) : false;
-  const visibleItems = items.filter((it) => !it.managerOnly || manager);
+  const baseItems = items.filter((it) => !it.managerOnly || manager);
+
+  // آیتمِ «باشگاه» فقط اگر ماژولِ loyalty روشن باشد (endpointش جواب دهد). اگر خاموش/حذف
+  // شده باشد، درخواست خطا می‌دهد و آیتم اصلاً نشان داده نمی‌شود (اصلِ «حذف‌شدنی»).
+  const { data: loyaltyOn } = useQuery({
+    queryKey: ["loyalty-enabled"],
+    queryFn: async () => { await api.get("/loyalty/levels"); return true; },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+  const visibleItems = loyaltyOn
+    ? [...baseItems, { href: "/club", label: "باشگاه", icon: Gift, managerOnly: false }]
+    : baseItems;
 
   function handleLogout() {
     logout();

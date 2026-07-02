@@ -2,7 +2,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 import { isDemoMode, isManager, getSession } from "@/lib/auth";
 import { Sidebar } from "@/components/Sidebar";
 import { BackButton } from "@/components/BackButton";
@@ -10,9 +10,10 @@ import { CallButton } from "@/components/CallButton";
 import { ContactLinks } from "@/components/ContactLinks";
 import { MessageModal } from "@/components/MessageModal";
 import { faNum, faDate } from "@/lib/utils";
+import { levelInfo } from "@/lib/loyalty";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmDialog";
-import { User, Phone, MessageSquare, Pencil, Trash2, Loader2, X, GraduationCap } from "lucide-react";
+import { User, Phone, MessageSquare, Pencil, Trash2, Loader2, X, GraduationCap, Gift, Copy, Check, Send } from "lucide-react";
 
 const DEMO = isDemoMode();
 const FIELDS = ["تجربی", "ریاضی", "انسانی", "سایر"];
@@ -166,6 +167,9 @@ function StudentDetail() {
               <Row label="وضعیت" value={s.status === "active" ? "فعال" : s.status} />
               <Row label="تاریخ ثبت" value={s.created_at ? faDate(s.created_at) : undefined} />
             </div>
+
+            {/* باشگاه مشتریان — اگر ماژول خاموش/حذف باشد، خودش پنهان می‌شود */}
+            <LoyaltyCard studentId={s.id} />
           </div>
         )}
 
@@ -279,6 +283,105 @@ function EditModal({ student, onClose }: { student: Student; onClose: () => void
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- کارتِ باشگاه مشتریان (خودپنهان‌شونده اگر ماژول خاموش/حذف باشد) ---------- */
+type LoyaltyAcc = {
+  points_balance: number; points_lifetime: number; level: string; referral_code: string | null;
+};
+
+function LoyaltyCard({ studentId }: { studentId: string }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [refCode, setRefCode] = useState("");
+  const [applying, setApplying] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const { data, isError } = useQuery<LoyaltyAcc>({
+    queryKey: ["loyalty-account", studentId],
+    queryFn: async () => (await api.get(`/loyalty/accounts/${studentId}`)).data,
+    retry: false,
+    enabled: !DEMO,
+  });
+
+  // ماژول خاموش/حذف یا دمو → کارت اصلاً نشان داده نمی‌شود.
+  if (DEMO || isError || !data) return null;
+
+  const info = levelInfo(data.level);
+
+  function copyCode() {
+    if (!data?.referral_code) return;
+    navigator.clipboard?.writeText(data.referral_code).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function applyReferral() {
+    if (!refCode.trim()) return;
+    setApplying(true);
+    try {
+      await api.post("/loyalty/referrals/apply", { code: refCode.trim(), student_id: studentId });
+      toast("کدِ معرف اعمال شد ✓");
+      setRefCode("");
+      qc.invalidateQueries({ queryKey: ["loyalty-account", studentId] });
+    } catch (err) {
+      toast(apiErrorMessage(err, "کدِ معرف نامعتبر بود."), "error");
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/40 p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <Gift size={18} className="text-violet-500" />
+        <h2 className="font-bold text-slate-800">باشگاه مشتریان</h2>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ring-1 ${info.cls}`}>
+          {info.emoji} {info.label}
+        </span>
+        <div className="rounded-xl bg-white px-3 py-1.5 ring-1 ring-slate-100">
+          <span className="text-lg font-extrabold text-violet-600">{faNum(data.points_balance)}</span>
+          <span className="mr-1 text-xs text-slate-400">امتیازِ قابلِ‌خرج</span>
+        </div>
+        <div className="text-xs text-slate-400">کلِ کسب‌شده: {faNum(data.points_lifetime)}</div>
+      </div>
+
+      {/* کد دعوت */}
+      {data.referral_code && (
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-xs text-slate-500">کد دعوتِ این دانش‌آموز:</span>
+          <code className="rounded-lg bg-slate-100 px-2 py-1 text-sm font-bold tracking-widest text-slate-700" dir="ltr">
+            {data.referral_code}
+          </code>
+          <button onClick={copyCode} title="کپی" className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+            {copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
+          </button>
+        </div>
+      )}
+
+      {/* اعمالِ کدِ معرف (چه کسی این دانش‌آموز را معرفی کرده) */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-violet-100 pt-3">
+        <span className="text-xs text-slate-500">کدِ معرف (اگر کسی معرفی‌اش کرده):</span>
+        <input
+          value={refCode}
+          onChange={(e) => setRefCode(e.target.value.toUpperCase())}
+          placeholder="مثلاً 7K3M9Q"
+          dir="ltr"
+          className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-violet-400"
+        />
+        <button
+          onClick={applyReferral}
+          disabled={applying || !refCode.trim()}
+          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-violet-700 disabled:opacity-50"
+        >
+          {applying ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} اعمال
+        </button>
       </div>
     </div>
   );
