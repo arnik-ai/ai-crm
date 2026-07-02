@@ -263,17 +263,17 @@ function FollowupActions({ id, mobile }: { id: string; mobile: string }) {
         onClick={done}
         disabled={busy}
         title="انجام شد"
-        className="inline-flex items-center justify-center rounded-lg bg-emerald-50 p-1.5 text-emerald-600 transition hover:bg-emerald-100 disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-100 disabled:opacity-50"
       >
-        <Check size={16} />
+        <Check size={16} /> انجام شد
       </button>
       <button
         onClick={remove}
         disabled={busy}
         title="حذف پیگیری"
-        className="inline-flex items-center justify-center rounded-lg bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
       >
-        {busy ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+        {busy ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} حذف
       </button>
     </div>
   );

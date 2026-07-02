@@ -12,7 +12,10 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # ⚠️ false باشد نه true: کنسل‌کردنِ دیپلویِ Pages وسطِ کار، محیطِ github-pages را
+  # خراب می‌کند و دیپلوی‌های بعدی fail می‌شوند. با false، دیپلوی‌ها صف می‌شوند و
+  # هرکدام کامل اجرا می‌شوند (توصیه‌ی رسمیِ GitHub برای Pages).
+  cancel-in-progress: false
 
 jobs:
   build:

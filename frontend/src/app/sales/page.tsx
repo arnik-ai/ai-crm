@@ -319,9 +319,9 @@ export default function SalesPage() {
                       <button
                         onClick={() => setEditSale(s)}
                         title="ویرایش فیش"
-                        className="inline-flex items-center justify-center rounded-lg bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
+                        className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100"
                       >
-                        <Pencil size={15} />
+                        <Pencil size={15} /> ویرایش
                       </button>
                       <DeleteSaleButton sale={s} />
                     </div>
@@ -393,9 +393,9 @@ function DeleteSaleButton({ sale }: { sale: Sale }) {
       onClick={onDelete}
       disabled={busy}
       title="حذف فیش"
-      className="inline-flex items-center justify-center rounded-lg bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
     >
-      {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+      {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} حذف
     </button>
   );
 }

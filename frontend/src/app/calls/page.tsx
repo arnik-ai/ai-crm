@@ -333,10 +333,10 @@ export default function CallsPage() {
                   {c.student_id && (
                     <button
                       onClick={() => setEditCall(c)}
-                      className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
+                      className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100"
                       title="ویرایش / تکمیل اطلاعات"
                     >
-                      <Pencil size={14} />
+                      <Pencil size={14} /> ویرایش
                     </button>
                   )}
                   {c.status !== "missed" && (

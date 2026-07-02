@@ -125,9 +125,9 @@ export default function UsersPage() {
                       <button
                         onClick={() => setEditUser(u)}
                         title="ویرایش (نام/موبایل/نقش)"
-                        className="inline-flex items-center justify-center rounded-lg bg-blue-50 p-1.5 text-blue-600 transition hover:bg-blue-100"
+                        className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100"
                       >
-                        <Pencil size={15} />
+                        <Pencil size={15} /> ویرایش
                       </button>
                       <button
                         onClick={() => toggleActive(u)}
