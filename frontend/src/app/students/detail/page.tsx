@@ -293,6 +293,10 @@ type LoyaltyAcc = {
   points_balance: number; points_lifetime: number; level: string; referral_code: string | null;
 };
 type LoyaltyTxn = { delta: number; reason: string; created_at: string | null };
+type LoyaltyReward = {
+  id: string; key: string | null; title: string | null;
+  cost_points: number; type: string; min_level: string | null; stock: number | null;
+};
 
 /** برچسبِ فارسیِ دلیلِ هر امتیاز (کلیدِ قانون → متنِ خوانا). */
 const REASON_LABEL: Record<string, string> = {
@@ -316,6 +320,9 @@ function LoyaltyCard({ studentId }: { studentId: string }) {
   const [applying, setApplying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showRewards, setShowRewards] = useState(false); // بخشِ «دریافتِ پاداش» جمع‌شونده
+  const [redeemingId, setRedeemingId] = useState<string | null>(null); // پاداشِ در حالِ دریافت
+  const [lastCoupon, setLastCoupon] = useState<string | null>(null); // کوپنِ تازه‌دریافت‌شده (برای نمایش/کپی)
 
   const { data, isError } = useQuery<LoyaltyAcc>({
     queryKey: ["loyalty-account", studentId],
@@ -329,6 +336,14 @@ function LoyaltyCard({ studentId }: { studentId: string }) {
     queryFn: async () => (await api.get(`/loyalty/accounts/${studentId}/transactions`)).data.items,
     retry: false,
     enabled: !DEMO && showHistory,   // فقط وقتی کاربر تاریخچه را باز کند
+  });
+
+  // کاتالوگِ پاداش‌ها — فقط وقتی کاربر بخشِ «دریافتِ پاداش» را باز کند (کوئریِ اضافه نزنیم).
+  const { data: rewards } = useQuery<LoyaltyReward[]>({
+    queryKey: ["loyalty-rewards"],
+    queryFn: async () => (await api.get("/loyalty/rewards")).data.items,
+    retry: false,
+    enabled: !DEMO && showRewards,
   });
 
   // ماژول خاموش/حذف یا دمو → کارت اصلاً نشان داده نمی‌شود.
@@ -355,6 +370,26 @@ function LoyaltyCard({ studentId }: { studentId: string }) {
       toast(apiErrorMessage(err, "کدِ معرف نامعتبر بود."), "error");
     } finally {
       setApplying(false);
+    }
+  }
+
+  /** خرجِ امتیازِ این دانش‌آموز برای یک پاداش. منطقِ کفایتِ امتیاز/سطح در بک‌اند است
+   *  (تک‌منبعِ حقیقت)؛ اینجا فقط فراخوانی می‌کنیم و پیامِ خطای فارسیِ بک‌اند را نشان می‌دهیم. */
+  async function doRedeem(reward: LoyaltyReward) {
+    if (redeemingId) return;
+    setRedeemingId(reward.id);
+    try {
+      const res = await api.post(`/loyalty/rewards/${reward.id}/redeem`, { student_id: studentId });
+      const coupon: string | null = res.data?.coupon_code ?? null;
+      setLastCoupon(coupon);
+      toast(coupon ? `پاداش دریافت شد — کوپن: ${coupon}` : "پاداش دریافت شد ✓");
+      // امتیازِ کسر‌شده به‌روز شود (و اگر تاریخچه باز است، تراکنشِ منفیِ جدید بیاید).
+      qc.invalidateQueries({ queryKey: ["loyalty-account", studentId] });
+      qc.invalidateQueries({ queryKey: ["loyalty-txns", studentId] });
+    } catch (err) {
+      toast(apiErrorMessage(err, "دریافتِ پاداش ممکن نشد."), "error");
+    } finally {
+      setRedeemingId(null);
     }
   }
 
@@ -406,6 +441,63 @@ function LoyaltyCard({ studentId }: { studentId: string }) {
         >
           {applying ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} اعمال
         </button>
+      </div>
+
+      {/* دریافتِ پاداش — جمع‌شونده (خرجِ امتیاز → کوپن/رزرو) */}
+      <div className="mt-3 border-t border-violet-100 pt-3">
+        <button
+          onClick={() => setShowRewards((v) => !v)}
+          className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700"
+        >
+          <ChevronDown size={15} className={`transition ${showRewards ? "rotate-180" : ""}`} />
+          <Gift size={14} /> دریافتِ پاداش (خرجِ امتیاز)
+        </button>
+        {showRewards && (
+          <div className="mt-2 space-y-1.5">
+            {/* کوپنِ تازه‌دریافت‌شده (اگر بود) */}
+            {lastCoupon && (
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-sm ring-1 ring-emerald-200">
+                <Check size={15} className="text-emerald-600" />
+                <span className="text-slate-600">کدِ کوپن:</span>
+                <code className="rounded bg-white px-2 py-0.5 font-bold tracking-widest text-emerald-700" dir="ltr">{lastCoupon}</code>
+                <button
+                  onClick={() => { navigator.clipboard?.writeText(lastCoupon).catch(() => {}); }}
+                  title="کپی" className="mr-auto rounded p-1 text-slate-400 hover:text-slate-600"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            )}
+            {(rewards ?? []).map((r) => {
+              const enough = data.points_balance >= r.cost_points; // چکِ نمایشیِ امتیاز (سطح را بک‌اند می‌سنجد)
+              const soldOut = r.stock !== null && r.stock <= 0;
+              const disabled = !enough || soldOut || redeemingId === r.id;
+              return (
+                <div key={r.id} className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2 text-sm ring-1 ring-slate-100">
+                  <div className="flex-1">
+                    <div className="font-medium text-slate-700">{r.title ?? r.key}</div>
+                    <div className="text-[11px] text-slate-400">
+                      {faNum(r.cost_points)} امتیاز
+                      {r.min_level && <> · ویژه‌ی {levelInfo(r.min_level).label} به بالا</>}
+                      {soldOut && <> · <span className="text-rose-500">تمام شد</span></>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => doRedeem(r)}
+                    disabled={disabled}
+                    title={!enough ? "امتیازِ کافی نداری" : soldOut ? "موجودی تمام شده" : "دریافتِ پاداش"}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {redeemingId === r.id ? <Loader2 size={13} className="animate-spin" /> : <Gift size={13} />} دریافت
+                  </button>
+                </div>
+              );
+            })}
+            {(rewards ?? []).length === 0 && (
+              <p className="py-3 text-center text-xs text-slate-400">پاداشی برای دریافت نیست.</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* تاریخچه‌ی امتیاز — جمع‌شونده (تا کارمند ببیند هر امتیاز از کجا آمده) */}
